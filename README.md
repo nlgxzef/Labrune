@@ -62,8 +62,8 @@ Coded by:
 
 Huge thanks to:
 - nfsu360 for NFS-LangEd. The tool is inspired from it.
-- HeyItsLeo for their great help.
-- trackmaniamatt for testing.
+- heyitsleo for their great help.
+- 379Felipe, Neon, RaTT and trackmaniamatt for testing.
 - And the people who used my NFS-StrEd before, which is never released to public.
 
 ------------------------
