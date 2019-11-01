@@ -29,6 +29,16 @@ namespace Labrune
         int ModifyIndex;
         int CurrentChunk = 0;
 
+        string ReadNullTerminated(BinaryReader rdr)
+        {
+            var bldr = new StringBuilder();
+            byte nc;
+            while ((nc = rdr.ReadByte()) > 0)
+                bldr.Append((char)nc);
+
+            return bldr.ToString();
+        }
+
         public MemoryStream DecryptWorldLanguageFile(String LangFilePath)
         {
             byte[] LangFileArray = File.ReadAllBytes(LangFilePath); // Read
@@ -247,7 +257,7 @@ namespace Labrune
                                 LngChk.Version = LanguageFileVersion.New;
                                 LngChk.StringRecordsOffset = StringFileReader.ReadInt32();
                                 LngChk.TextOffset = StringFileReader.ReadInt32();
-                                LngChk.Category = StringFileReader.ReadStringAsciiNullTerminated();
+                                LngChk.Category = ReadNullTerminated(StringFileReader);
                             }
 
                             LngChk.Strings = new List<LanguageStringRecord>();
@@ -263,7 +273,7 @@ namespace Labrune
                                 StrRec.Hash = StringFileReader.ReadUInt32();
 
                                 StringFileReader.BaseStream.Position = LngChk.Offset + 8 + LngChk.TextOffset + StringFileReader.ReadInt32();
-                                StrRec.Text = StringFileReader.ReadStringAsciiNullTerminated();
+                                StrRec.Text = ReadNullTerminated(StringFileReader);
                                 StrRec.IsModified = false;
                                 
                                 LngChk.Strings.Add(StrRec);
@@ -326,7 +336,7 @@ namespace Labrune
                                     LngChk.Version = LanguageFileVersion.New;
                                     LngChk.StringRecordsOffset = LabelFileReader.ReadInt32();
                                     LngChk.TextOffset = LabelFileReader.ReadInt32();
-                                    LngChk.Category = LabelFileReader.ReadStringAsciiNullTerminated();
+                                    LngChk.Category = ReadNullTerminated(LabelFileReader);
                                 }
 
                                 LngChk.Strings = new List<LanguageStringRecord>();
@@ -342,7 +352,7 @@ namespace Labrune
                                     StrRec.Hash = LabelFileReader.ReadUInt32();
 
                                     LabelFileReader.BaseStream.Position = LngChk.Offset + 8 + LngChk.TextOffset + LabelFileReader.ReadInt32();
-                                    StrRec.Text = LabelFileReader.ReadStringAsciiNullTerminated();
+                                    StrRec.Text = ReadNullTerminated(LabelFileReader);
 
                                     /*LngChk.Strings.Add(StrRec);*/
 
@@ -1210,7 +1220,7 @@ namespace Labrune
                                         LanguageHashTableWriter.Write((int)LanguageStringTableWriter.BaseStream.Position);
 
                                         // Write string for the strings table
-                                        LanguageStringTableWriter.Write(Encoding.ASCII.GetBytes(StrRec.Text + "\0"));
+                                        LanguageStringTableWriter.Write(Encoding.GetEncoding("ISO-8859-1").GetBytes(StrRec.Text + "\0"));
                                     }
 
                                     // Fix strings table size to %4
@@ -1241,7 +1251,7 @@ namespace Labrune
                                         LangFileWriter.Write(LangChunks[NrChkToWrite].Strings.Count);
                                         LangFileWriter.Write((int)(0x1C)); // Hash table offset
                                         LangFileWriter.Write((int)(0x1C + LanguageHashTableWriter.BaseStream.Length)); // String table offset
-                                        byte[] LangFileCategory = Encoding.ASCII.GetBytes(LangChunks[NrChkToWrite].Category);
+                                        byte[] LangFileCategory = Encoding.GetEncoding("ISO-8859-1").GetBytes(LangChunks[NrChkToWrite].Category);
                                         Array.Resize(ref LangFileCategory, 16);
                                         LangFileWriter.Write(LangFileCategory);
                                         LangFileWriter.Write(LanguageHashTable.ToArray());
@@ -1327,7 +1337,7 @@ namespace Labrune
                                             LabelHashTableWriter.Write((int)LabelStringTableWriter.BaseStream.Position);
 
                                             // Write labels for the strings table
-                                            LabelStringTableWriter.Write(Encoding.ASCII.GetBytes(StrRec.Label + "\0"));
+                                            LabelStringTableWriter.Write(Encoding.GetEncoding("ISO-8859-1").GetBytes(StrRec.Label + "\0"));
                                         }
 
                                         // Fix strings table size to %4
@@ -1358,7 +1368,7 @@ namespace Labrune
                                             LabelFileWriter.Write(LangChunks[NrChkToWrite].Strings.Count);
                                             LabelFileWriter.Write((int)(0x1C)); // Hash table offset
                                             LabelFileWriter.Write((int)(0x1C + LabelHashTableWriter.BaseStream.Length)); // String table offset
-                                            byte[] LangFileCategory = Encoding.ASCII.GetBytes(LangChunks[NrChkToWrite].Category);
+                                            byte[] LangFileCategory = Encoding.GetEncoding("ISO-8859-1").GetBytes(LangChunks[NrChkToWrite].Category);
                                             Array.Resize(ref LangFileCategory, 16);
                                             LabelFileWriter.Write(LangFileCategory);
                                             LabelFileWriter.Write(LabelHashTable.ToArray());

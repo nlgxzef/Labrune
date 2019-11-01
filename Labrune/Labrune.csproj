@@ -51,9 +51,6 @@
     <ApplicationIcon>LabruneLogo.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="BinaryExtensions, Version=1.0.6896.28656, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\BinaryExtensions.1.0.6896.28656\lib\net461\BinaryExtensions.dll</HintPath>
-    </Reference>
     <Reference Include="Microsoft.WindowsAPICodePack, Version=1.1.2.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\WindowsAPICodePack-Core.1.1.2\lib\Microsoft.WindowsAPICodePack.dll</HintPath>
     </Reference>
