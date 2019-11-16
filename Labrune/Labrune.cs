@@ -31,12 +31,14 @@ namespace Labrune
 
         string ReadNullTerminated(BinaryReader rdr)
         {
-            var bldr = new StringBuilder();
+            var bldr = new List<Byte>();
             byte nc;
             while ((nc = rdr.ReadByte()) > 0)
-                bldr.Append((char)nc);
+                bldr.Add(nc);
 
-            return bldr.ToString();
+            // TODO: Swap World Characters to make it more readable.
+
+            return Encoding.GetEncoding("ISO-8859-1").GetString(bldr.ToArray());
         }
 
         public MemoryStream DecryptWorldLanguageFile(String LangFilePath)
@@ -64,6 +66,7 @@ namespace Labrune
             ModifiedValuesIndexes.Clear();
             PrevModifiedToolStripMenuItem.Enabled = true;
             NextModifiedToolStripMenuItem.Enabled = true;
+            textFileModifiedEntriesOnlyToolStripMenuItem.Enabled = true;
         }
 
         public void MarkFileAsUnModified()
@@ -73,6 +76,7 @@ namespace Labrune
             ModifiedValuesIndexes.Clear();
             PrevModifiedToolStripMenuItem.Enabled = false;
             NextModifiedToolStripMenuItem.Enabled = false;
+            textFileModifiedEntriesOnlyToolStripMenuItem.Enabled = false;
         }
 
         public void SortStringRecords()
@@ -85,15 +89,34 @@ namespace Labrune
             String SelectedItem = String.Empty;
             if (LangStringView.SelectedItems.Count != 0) SelectedItem = LangStringView.SelectedItems[0].SubItems[1].Text; // Get the hash as the text
 
-            LangChunkSelector_SelectedIndexChanged(this, new EventArgs());
+            LangStringView.Items.Clear();
+            int StrID = 0;
+
+            LangStringView.BeginUpdate();
+
+            CurrentChunk = LangChunkSelector.SelectedIndex;
+
+            foreach (LanguageStringRecord StR in LangChunks[CurrentChunk].Strings)
+            {
+                var StrItm = new ListViewItem();
+
+                StrItm.Text = StrID++.ToString();
+                StrItm.SubItems.Add(StR.Hash.ToString("X8"));
+                StrItm.SubItems.Add(StR.Label);
+                StrItm.SubItems.Add(StR.Text);
+                if (StR.IsModified == true) StrItm.BackColor = Color.LightYellow;
+                LangStringView.Items.Add(StrItm);
+            }
+
+            LangStringView.EndUpdate();
 
             if (SelectedItem != String.Empty)
             {
                 var ItemWithTheHash = LangStringView.FindItemWithText(SelectedItem, true, 0);
                 if (ItemWithTheHash != null)
                 {
-                   LangStringView.Items[ItemWithTheHash.Index].Selected = true;
-                   LangStringView.Items[ItemWithTheHash.Index].EnsureVisible();
+                    LangStringView.Items[ItemWithTheHash.Index].Selected = true;
+                    LangStringView.Items[ItemWithTheHash.Index].EnsureVisible();
                 }
             }
         }
@@ -224,7 +247,7 @@ namespace Labrune
                 LangChunkSelector.Items.Clear();
                 int NrLangChk = 0;
 
-                MemoryStream LangFileStream = DecryptWorldLanguageFile(OpenLanguageFileDlg.FileName);
+                MemoryStream LangFileStream = DecryptWorldLanguageFile(OpenLanguageFileDlg.FileName); // Decrypt the file if it's from NFSW.
 
                 using (BinaryReader StringFileReader = new BinaryReader(LangFileStream))
                 {
@@ -235,15 +258,12 @@ namespace Labrune
 
                         if (ChkID == 0x00039000) // 00 90 03 00 - BCHUNK_LANGUAGE
                         {
-                            // TODO: Check if it's old (MW, U, U2) style or new (C+) style.
-                            // TODO: Decrypt the file if it's from NFSW.
-
                             var LngChk = new LanguageChunk();
                             LngChk.Offset = (int)StringFileReader.BaseStream.Position - 8;
                             LngChk.Size = ChkSz;
                             LngChk.NumberOfStringRecords = StringFileReader.ReadInt32();
 
-
+                            // Check if it's old (MW, U, U2) style or new (C+) style.
                             if (LngChk.NumberOfStringRecords == 0x10) // There is a 0x10 instead of string record count in old files. (Quick and dirty approach)
                             {
                                 LngChk.Version = LanguageFileVersion.Old;
@@ -405,29 +425,13 @@ namespace Labrune
 
         private void LangChunkSelector_SelectedIndexChanged(object sender, EventArgs e)
         {
-            LangStringView.Items.Clear();
-            int StrID = 0;
-
             ModifiedValuesIndexes.Clear();
             FoundValuesIndexes.Clear();
 
-            LangStringView.BeginUpdate();
+            FindNextToolStripMenuItem.Enabled = false;
+            FindPreviousToolStripMenuItem.Enabled = false;
 
-            CurrentChunk = LangChunkSelector.SelectedIndex;
-
-            foreach (LanguageStringRecord StR in LangChunks[CurrentChunk].Strings)
-            {
-                var StrItm = new ListViewItem();
-
-                StrItm.Text = StrID++.ToString();
-                StrItm.SubItems.Add(StR.Hash.ToString("X8"));
-                StrItm.SubItems.Add(StR.Label);
-                StrItm.SubItems.Add(StR.Text);
-                if (StR.IsModified == true) StrItm.BackColor = Color.LightYellow;
-                LangStringView.Items.Add(StrItm);
-            }
-
-            LangStringView.EndUpdate();
+            RefreshStringView();
         }
 
         private void fontSettingsToolStripMenuItem_Click(object sender, EventArgs e)
@@ -446,6 +450,7 @@ namespace Labrune
             if (item != null)
             {
                 var StringEditor = new LabruneEdit();
+                if (BinHash.Hash(item.SubItems[2].Text).ToString("X8") != item.SubItems[1].Text) StringEditor.CheckUseCustomHash.Checked = true;
                 StringEditor.ID = item.Text;
                 StringEditor.Hash = item.SubItems[1].Text;
                 StringEditor.Label = item.SubItems[2].Text;
@@ -618,6 +623,7 @@ namespace Labrune
             if (item != null)
             {
                 var StringEditor = new LabruneEdit();
+                if (BinHash.Hash(item.SubItems[2].Text).ToString("X8") != item.SubItems[1].Text) StringEditor.CheckUseCustomHash.Checked = true;
                 StringEditor.ID = item.Text;
                 StringEditor.Hash = item.SubItems[1].Text;
                 StringEditor.Label = item.SubItems[2].Text;
@@ -1458,6 +1464,75 @@ namespace Labrune
         {
             var OptionsWindow = new LabruneOptions();
             OptionsWindow.ShowDialog();
+        }
+
+        private void TextFileModifiedEntriesOnlyToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (IsFileModified)
+            {
+                if (ExportFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    String TXTFileName = ExportFileDialog.FileName.ToString();
+                    if (TXTFileName != "")
+                    {
+                        try
+                        {
+                            using (StreamWriter TXTFile = new StreamWriter(TXTFileName))
+                            {
+                                TXTFile.WriteLine("#\t" + Text);
+                                TXTFile.WriteLine("#\t" + "File created on: " + DateTime.Now.ToString());
+                                TXTFile.WriteLine("#");
+                                TXTFile.WriteLine("#" + "Chunk" + "\t" + "Hash (HEX)" + "\t" + "Label" + "\t" + "Value");
+                                TXTFile.WriteLine("#" + " " + "---------------------------------------------------------------------------------------------------------");
+
+                                foreach (LanguageChunk i in LangChunks)
+                                {
+                                    TXTFile.WriteLine("# Chunk " + LangChunks.IndexOf(i) + (String.IsNullOrEmpty(i.Category) ? "" : " - " + i.Category));
+                                    foreach (LanguageStringRecord sR in i.Strings)
+                                    {
+                                        if (sR.IsModified == true) TXTFile.WriteLine("{0}\t{1}\t{2}\t{3}", LangChunks.IndexOf(i), sR.Hash.ToString("X8"), sR.Label, sR.Text);
+                                    }
+                                }
+
+                                //MessageBox.Show("All values are exported into" + "\n" + TXTFileName, "Labrune", MessageBoxButtons.OK);
+                                TaskDialog MsgDialog = new TaskDialog();
+                                MsgDialog.StandardButtons = TaskDialogStandardButtons.Ok;
+                                MsgDialog.Icon = TaskDialogStandardIcon.Information;
+                                MsgDialog.InstructionText = "Done!";
+                                MsgDialog.Caption = "Labrune";
+                                MsgDialog.Text = "All modified values are exported into" + " " + TXTFileName;
+                                MsgDialog.Show();
+                            }
+
+                        }
+                        catch (Exception ex)
+                        {
+                            //MessageBox.Show("Values could not be exported.", "Labrune", MessageBoxButtons.OK);
+                            TaskDialog ErrDialog = new TaskDialog();
+                            ErrDialog.StandardButtons = TaskDialogStandardButtons.Ok;
+                            ErrDialog.Icon = TaskDialogStandardIcon.Error;
+                            ErrDialog.InstructionText = "Error!";
+                            ErrDialog.Caption = "Labrune";
+                            ErrDialog.Text = "Values could not be exported.";
+                            ErrDialog.DetailsExpanded = false;
+                            ErrDialog.DetailsExpandedText = ex.ToString();
+                            ErrDialog.ExpansionMode = TaskDialogExpandedDetailsLocation.ExpandFooter;
+                            ErrDialog.Show();
+                        }
+                    }
+                }
+            }
+            else
+            {
+                TaskDialog MsgDialog = new TaskDialog();
+                MsgDialog.StandardButtons = TaskDialogStandardButtons.Ok;
+                MsgDialog.Icon = TaskDialogStandardIcon.Warning;
+                MsgDialog.InstructionText = "Warning!";
+                MsgDialog.Caption = "Labrune";
+                MsgDialog.Text = "There are no modified values.";
+                MsgDialog.Show();
+            }
+            
         }
     }
 }

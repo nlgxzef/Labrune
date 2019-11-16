@@ -146,6 +146,6 @@
         private System.Windows.Forms.TextBox HashTextBox;
         private System.Windows.Forms.Label HashLabel;
         private System.Windows.Forms.Label LabelLabel;
-        private System.Windows.Forms.CheckBox CheckUseCustomHash;
+        public System.Windows.Forms.CheckBox CheckUseCustomHash;
     }
 }

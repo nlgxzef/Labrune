@@ -30,7 +30,7 @@ namespace Labrune
 
         private void LabruneEdit_Load(object sender, EventArgs e)
         {
-            HashTextBox.Enabled = false;
+            if (!CheckUseCustomHash.Checked) HashTextBox.Enabled = false;
 
             HashTextBox.Text = Hash;
             LabelTextBox.Text = Label;
@@ -51,19 +51,17 @@ namespace Labrune
             if (CheckUseCustomHash.Checked)
             {
                 HashTextBox.Enabled = true;
-                LabelTextBox.Enabled = false;
             }
             else
             {
                 HashTextBox.Enabled = false;
-                LabelTextBox.Enabled = true;
                 LabelTextBox_TextChanged(sender, new EventArgs());
             }
         }
 
         private void LabelTextBox_TextChanged(object sender, EventArgs e)
         {
-            HashTextBox.Text = BinHash.Hash(LabelTextBox.Text).ToString("X8");
+            if (!CheckUseCustomHash.Checked) HashTextBox.Text = BinHash.Hash(LabelTextBox.Text).ToString("X8");
         }
 
         private void OKButton_Click(object sender, EventArgs e)
