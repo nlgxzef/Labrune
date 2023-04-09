@@ -14,9 +14,11 @@ namespace Labrune
 {
     public partial class Labrune : Form
     {
+        LabruneFind Finder;
         public Labrune()
         {
             InitializeComponent();
+            Finder = new LabruneFind();
         }
 
         List<LanguageChunk> LangChunks = new List<LanguageChunk>();
@@ -646,8 +648,6 @@ namespace Labrune
 
         private void SearchToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var Finder = new LabruneFind();
-            Finder.ValueToFind = "";
             FindNextToolStripMenuItem.Enabled = false;
             FindPreviousToolStripMenuItem.Enabled = false;
 
@@ -664,6 +664,7 @@ namespace Labrune
             if ((Result == DialogResult.OK) && (Finder.ValueToFind != String.Empty))
             {
                 FoundValuesIndexes.Clear();
+                String unhexifiedStr = Finder.ValueToFind.StartsWith("0x") ? Finder.ValueToFind.Substring(2) : Finder.ValueToFind;
 
                 if (Finder.AlsoSearchInHashesAndLabels)
                 {
@@ -671,7 +672,7 @@ namespace Labrune
                     {
                         foreach (ListViewItem item in LangStringView.Items)
                         {
-                            if (item.SubItems[1].Text.Contains(Finder.ValueToFind) || item.SubItems[2].Text.Contains(Finder.ValueToFind) || item.SubItems[3].Text.Contains(Finder.ValueToFind))
+                            if (item.SubItems[1].Text.Contains(unhexifiedStr) || item.SubItems[2].Text.Contains(Finder.ValueToFind) || item.SubItems[3].Text.Contains(Finder.ValueToFind))
                             {
                                 FoundValuesIndexes.Add(item.Index);
                                 item.BackColor = Color.LightGreen; // Mark results
@@ -685,7 +686,7 @@ namespace Labrune
                         {
                             var enUS = new System.Globalization.CultureInfo("en-US");
 
-                            if (item.SubItems[1].Text.ToUpper(enUS).Contains(Finder.ValueToFind.ToUpper(enUS))|| item.SubItems[2].Text.ToUpper(enUS).Contains(Finder.ValueToFind.ToUpper(enUS)) || item.SubItems[3].Text.ToUpper(enUS).Contains(Finder.ValueToFind.ToUpper(enUS)))
+                            if (item.SubItems[1].Text.ToUpper(enUS).Contains(unhexifiedStr.ToUpper(enUS))|| item.SubItems[2].Text.ToUpper(enUS).Contains(Finder.ValueToFind.ToUpper(enUS)) || item.SubItems[3].Text.ToUpper(enUS).Contains(Finder.ValueToFind.ToUpper(enUS)))
                             {
                                 FoundValuesIndexes.Add(item.Index);
                                 item.BackColor = Color.LightGreen; // Mark results

@@ -21,6 +21,19 @@ namespace Labrune
             InitializeComponent();
         }
 
+        private void LabruneFind_Shown(object sender, EventArgs e)
+        {
+            this.ActiveControl = this.FindTextBox;
+        }
+
+        private void LabruneFind_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Escape) {
+                DialogResult = DialogResult.Cancel;
+                Close(); 
+            }
+        }
+
         private void OKButton_Click(object sender, EventArgs e)
         {
             ValueToFind = FindTextBox.Text;
@@ -37,5 +50,5 @@ namespace Labrune
         {
             AlsoSearchInHashesAndLabels = CheckAlsoHash.Checked;
         }
-    }
+  }
 }
