@@ -1,13 +1,13 @@
 ﻿using Microsoft.WindowsAPICodePack.Dialogs;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Labrune
@@ -15,13 +15,21 @@ namespace Labrune
     public partial class Labrune : Form
     {
         LabruneFind Finder;
+        LabruneExport Exporter;
+        LabruneRestore Restorer;
+        LabruneOptions Saver;
         public Labrune()
         {
             InitializeComponent();
             Finder = new LabruneFind();
+            Exporter = new LabruneExport();
+            Restorer = new LabruneRestore();
+            Saver = new LabruneOptions();
         }
 
+        List<File> Files = new List<File>();
         List<LanguageChunk> LangChunks = new List<LanguageChunk>();
+        LanguageHistogramChunk HistChunk;
         bool IsFileModified = false;
         bool HasLabels = false;
 
@@ -31,44 +39,12 @@ namespace Labrune
         int ModifyIndex;
         int CurrentChunk = 0;
 
-        string ReadNullTerminated(BinaryReader rdr)
-        {
-            var bldr = new List<Byte>();
-            byte nc;
-            while ((nc = rdr.ReadByte()) > 0)
-                bldr.Add(nc);
-
-            // TODO: Swap World Characters to make it more readable.
-
-            return Encoding.GetEncoding("ISO-8859-1").GetString(bldr.ToArray());
-        }
-
-        public MemoryStream DecryptWorldLanguageFile(String LangFilePath)
-        {
-            byte[] LangFileArray = File.ReadAllBytes(LangFilePath); // Read
-
-            if (LangFileArray[0] == 0x6B) // If encrypted
-            {
-                for (int i = LangFileArray.Length - 1; i >= 1; --i) // Decrypt
-                    LangFileArray[i] ^= LangFileArray[i - 1];
-
-                LangFileArray[0] ^= 0x6B;
-
-                //File.Copy(LangFilePath, LangFilePath + ".bak", false);
-            }
-
-            return new MemoryStream(LangFileArray);
-
-        }
-        
         public void MarkFileAsModified()
         {
             if (!IsFileModified) Text = "*" + Text;
             IsFileModified = true;
-            ModifiedValuesIndexes.Clear();
             PrevModifiedToolStripMenuItem.Enabled = true;
             NextModifiedToolStripMenuItem.Enabled = true;
-            textFileModifiedEntriesOnlyToolStripMenuItem.Enabled = true;
         }
 
         public void MarkFileAsUnModified()
@@ -78,7 +54,6 @@ namespace Labrune
             ModifiedValuesIndexes.Clear();
             PrevModifiedToolStripMenuItem.Enabled = false;
             NextModifiedToolStripMenuItem.Enabled = false;
-            textFileModifiedEntriesOnlyToolStripMenuItem.Enabled = false;
         }
 
         public void SortStringRecords()
@@ -106,8 +81,32 @@ namespace Labrune
                 StrItm.SubItems.Add(StR.Hash.ToString("X8"));
                 StrItm.SubItems.Add(StR.Label);
                 StrItm.SubItems.Add(StR.Text);
-                if (StR.IsModified == true) StrItm.BackColor = Color.LightYellow;
+
+                int ItemIndex = LangChunks[CurrentChunk].Strings.IndexOf(StR);
+                if (ItemIndex >= 0)
+                {
+                    if (FoundValuesIndexes.Contains(ItemIndex)) // is a find result
+                    {
+                        StrItm.BackColor = Color.LightGreen;
+                        StrItm.ForeColor = Color.Black;
+                    }
+
+                    if (StR.IsModified == true) // is modified
+                    {
+                        StrItm.BackColor = Color.LightYellow;
+                        StrItm.ForeColor = Color.Black;
+
+                        ModifiedValuesIndexes.Add(ItemIndex);
+                    }
+                }
+
                 LangStringView.Items.Add(StrItm);
+            }
+
+            if (ModifiedValuesIndexes.Count > 0)
+            {
+                PrevModifiedToolStripMenuItem.Enabled = true;
+                NextModifiedToolStripMenuItem.Enabled = true;
             }
 
             LangStringView.EndUpdate();
@@ -187,7 +186,7 @@ namespace Labrune
             {
                 LangChunks[CurrentChunk].Strings.Add(NewStrRec);
             }
-            
+
         }
 
         public void UpdateAfterImport()
@@ -217,11 +216,52 @@ namespace Labrune
             RefreshStringView();
         }
 
+        public void ThrowInfo(string Title, string Instruction, string Message)
+        {
+            TaskDialog ErrDialog = new TaskDialog();
+            ErrDialog.StandardButtons = TaskDialogStandardButtons.Ok;
+            ErrDialog.Icon = TaskDialogStandardIcon.Information;
+            ErrDialog.InstructionText = string.IsNullOrEmpty(Instruction) ? "" : Instruction;
+            ErrDialog.Caption = string.IsNullOrEmpty(Title) ? "" : Title;
+            ErrDialog.Text = string.IsNullOrEmpty(Message) ? "" : Message;
+            ErrDialog.OwnerWindowHandle = this.Handle;
+            ErrDialog.Show();
+        }
+
+        public void ThrowError(string Title, string Instruction, string Message)
+        {
+            TaskDialog ErrDialog = new TaskDialog();
+            ErrDialog.StandardButtons = TaskDialogStandardButtons.Ok;
+            ErrDialog.Icon = TaskDialogStandardIcon.Error;
+            ErrDialog.InstructionText = string.IsNullOrEmpty(Instruction) ? "" : Instruction;
+            ErrDialog.Caption = string.IsNullOrEmpty(Title) ? "" : Title;
+            ErrDialog.Text = string.IsNullOrEmpty(Message) ? "" : Message;
+            ErrDialog.OwnerWindowHandle = this.Handle;
+            ErrDialog.Show();
+        }
+
+        public void ThrowError(string Title, string Instruction, string Message, string Details)
+        {
+            TaskDialog ErrDialog = new TaskDialog();
+            ErrDialog.StandardButtons = TaskDialogStandardButtons.Ok;
+            ErrDialog.Icon = TaskDialogStandardIcon.Error;
+            ErrDialog.InstructionText = string.IsNullOrEmpty(Instruction) ? "" : Instruction;
+            ErrDialog.Caption = string.IsNullOrEmpty(Title) ? "" : Title;
+            ErrDialog.Text = string.IsNullOrEmpty(Message) ? "" : Message;
+            ErrDialog.DetailsExpanded = false;
+            ErrDialog.DetailsExpandedText = string.IsNullOrEmpty(Details) ? "" : Details;
+            ErrDialog.ExpansionMode = TaskDialogExpandedDetailsLocation.ExpandFooter;
+            ErrDialog.OwnerWindowHandle = this.Handle;
+            ErrDialog.Show();
+        }
+
         public void EnableMenuOptions()
         {
             ImportToolStripMenuItem.Enabled = true;
             exportToolStripMenuItem.Enabled = true;
             saveToolStripMenuItem.Enabled = true;
+            saveAsToolStripMenuItem.Enabled = true;
+            restoreBackupsToolStripMenuItem.Enabled = true;
             AddToolStripMenuItem.Enabled = true;
             EditStrToolStripMenuItem.Enabled = true;
             RemoveToolStripMenuItem.Enabled = true;
@@ -233,212 +273,613 @@ namespace Labrune
             ImportToolStripMenuItem.Enabled = false;
             exportToolStripMenuItem.Enabled = false;
             saveToolStripMenuItem.Enabled = false;
+            saveAsToolStripMenuItem.Enabled = false;
+            restoreBackupsToolStripMenuItem.Enabled = false;
             AddToolStripMenuItem.Enabled = false;
             EditStrToolStripMenuItem.Enabled = false;
             RemoveToolStripMenuItem.Enabled = false;
             SearchToolStripMenuItem.Enabled = false;
         }
 
-        private void openToolStripMenuItem_Click(object sender, EventArgs e)
+        public bool LoadFile(string filename)
         {
-            if (OpenLanguageFileDlg.ShowDialog() == DialogResult.OK)
+            bool IsFileLoaded = false;
+
+            // Open the file and read all its chunks
+            var LngFile = new File(filename);
+
+            if (LngFile.IsValid())
             {
-                // Initialize
-                foreach(LanguageChunk c in LangChunks) c.Strings.Clear();
-                LangChunks.Clear();
-                LangChunkSelector.Items.Clear();
-                int NrLangChk = 0;
+                LngFile.ReadChunks();
 
-                MemoryStream LangFileStream = DecryptWorldLanguageFile(OpenLanguageFileDlg.FileName); // Decrypt the file if it's from NFSW.
-
-                using (BinaryReader StringFileReader = new BinaryReader(LangFileStream))
+                // Look for a language histogram chunk
+                for (int i = 0; i < LngFile.Chunks.Count; i++) // foreach doesn't allow what we do here
                 {
-                    while (StringFileReader.BaseStream.Position < StringFileReader.BaseStream.Length)
+                    if (LngFile.Chunks[i].ID == (uint)ChunkID.BCHUNK_LANGUAGEHISTOGRAM)
                     {
-                        uint ChkID = StringFileReader.ReadUInt32();
-                        int ChkSz = StringFileReader.ReadInt32();
-
-                        if (ChkID == 0x00039000) // 00 90 03 00 - BCHUNK_LANGUAGE
-                        {
-                            var LngChk = new LanguageChunk();
-                            LngChk.Offset = (int)StringFileReader.BaseStream.Position - 8;
-                            LngChk.Size = ChkSz;
-                            LngChk.NumberOfStringRecords = StringFileReader.ReadInt32();
-
-                            // Check if it's old (MW, U, U2) style or new (C+) style.
-                            if (LngChk.NumberOfStringRecords == 0x10) // There is a 0x10 instead of string record count in old files. (Quick and dirty approach)
-                            {
-                                LngChk.Version = LanguageFileVersion.Old;
-                                LngChk.NumberOfStringRecords = StringFileReader.ReadInt32();
-                                LngChk.StringRecordsOffset = StringFileReader.ReadInt32();
-                                LngChk.TextOffset = StringFileReader.ReadInt32();
-                                LngChk.UnkData = StringFileReader.ReadBytes(LngChk.StringRecordsOffset - 0x10);
-                            }
-                            else
-                            {
-                                LngChk.Version = LanguageFileVersion.New;
-                                LngChk.StringRecordsOffset = StringFileReader.ReadInt32();
-                                LngChk.TextOffset = StringFileReader.ReadInt32();
-                                LngChk.Category = ReadNullTerminated(StringFileReader);
-                            }
-
-                            LngChk.Strings = new List<LanguageStringRecord>();
-
-                            StringFileReader.BaseStream.Position = LngChk.Offset + 8 + LngChk.StringRecordsOffset;
-
-                            for (int i=0; i<LngChk.NumberOfStringRecords; i++) // Traverse all the string records and read them
-                            {
-                                StringFileReader.BaseStream.Position = LngChk.Offset + 8 + LngChk.StringRecordsOffset + i * 8;
-
-                                var StrRec = new LanguageStringRecord();
-
-                                StrRec.Hash = StringFileReader.ReadUInt32();
-
-                                StringFileReader.BaseStream.Position = LngChk.Offset + 8 + LngChk.TextOffset + StringFileReader.ReadInt32();
-                                StrRec.Text = ReadNullTerminated(StringFileReader);
-                                StrRec.IsModified = false;
-                                
-                                LngChk.Strings.Add(StrRec);
-                            }
-
-                            LangChunks.Add(LngChk);
-                            LangChunkSelector.Items.Add("#" + NrLangChk++ + (LngChk.Version == LanguageFileVersion.New ? " - " + LngChk.Category : ""));
-
-                            StringFileReader.BaseStream.Position = LngChk.Offset + 8 + LngChk.Size;
-
-                        }
-                        else
-                        {
-                            StringFileReader.BaseStream.Position += ChkSz;
-                        }
+                        HistChunk = new LanguageHistogramChunk(LngFile.Chunks[i]); // Convert chunk type
+                        LngFile.Chunks[i] = HistChunk;
+                        break;
                     }
                 }
 
-                LangFileStream.Dispose();
-                LangFileStream.Close();
-
-                // Check for labels
-
-                String LabelFileType = OpenLanguageFileDlg.FileName.LastIndexOf('_') == -1 ? "" : OpenLanguageFileDlg.FileName.Substring(OpenLanguageFileDlg.FileName.LastIndexOf('_'));
-                String LabelFileName = Path.Combine(Path.GetDirectoryName(OpenLanguageFileDlg.FileName), "Labels" + (String.IsNullOrEmpty(LabelFileType) ? ".bin" : LabelFileType));
-                if (File.Exists(LabelFileName))
+                if (HistChunk == null) // No histogram data in the language file. Look for the Global file instead.
                 {
-                    NrLangChk = 0;
-
-                    MemoryStream LabelFileStream = DecryptWorldLanguageFile(LabelFileName);
-
-                    using (BinaryReader LabelFileReader = new BinaryReader(LabelFileStream))
+                    // Attempt to open _Global file for a histogram
+                    if (!LngFile.FileName.Contains("_Global"))
                     {
-                        while (LabelFileReader.BaseStream.Position < LabelFileReader.BaseStream.Length)
+                        String fPath = Path.GetDirectoryName(LngFile.FileName);
+                        String fNameWOExt = Path.GetFileNameWithoutExtension(LngFile.FileName);
+                        String fExt = Path.GetExtension(LngFile.FileName);
+
+                        String fType = fNameWOExt.LastIndexOf('_') == -1 ? "" : fNameWOExt.Substring(0, fNameWOExt.LastIndexOf('_'));
+                        String GlobalFileName = Path.Combine(fPath, fType + "_Global" + fExt);
+
+                        if (System.IO.File.Exists(GlobalFileName))
                         {
-                            uint ChkID = LabelFileReader.ReadUInt32();
-                            int ChkSz = LabelFileReader.ReadInt32();
-
-                            if (ChkID == 0x00039000) // 00 90 03 00 - BCHUNK_LANGUAGE
+                            // Open the file and read all its chunks
+                            var GlbFile = new File(GlobalFileName);
+                            if (GlbFile.IsValid())
                             {
-                                // TODO: Check if it's old (MW, U, U2) style or new (C+) style.
-                                // TODO: Decrypt the file if it's from NFSW.
+                                GlbFile.ReadChunks();
 
-                                var LngChk = new LanguageChunk();
-                                LngChk.Offset = (int)LabelFileReader.BaseStream.Position - 8;
-                                LngChk.Size = ChkSz;
-                                LngChk.NumberOfStringRecords = LabelFileReader.ReadInt32();
-
-
-                                if (LngChk.NumberOfStringRecords == 0x10) // There is a 0x10 instead of string record count in old files. (Quick and dirty approach)
+                                // Try to find the histogram in it
+                                for (int j = 0; j < GlbFile.Chunks.Count; j++) // foreach doesn't allow what we do here
                                 {
-                                    LngChk.Version = LanguageFileVersion.Old;
-                                    LngChk.NumberOfStringRecords = LabelFileReader.ReadInt32();
-                                    LngChk.StringRecordsOffset = LabelFileReader.ReadInt32();
-                                    LngChk.TextOffset = LabelFileReader.ReadInt32();
-                                    LngChk.UnkData = LabelFileReader.ReadBytes(LngChk.StringRecordsOffset - 0x10);
-                                }
-                                else
-                                {
-                                    LngChk.Version = LanguageFileVersion.New;
-                                    LngChk.StringRecordsOffset = LabelFileReader.ReadInt32();
-                                    LngChk.TextOffset = LabelFileReader.ReadInt32();
-                                    LngChk.Category = ReadNullTerminated(LabelFileReader);
-                                }
-
-                                LngChk.Strings = new List<LanguageStringRecord>();
-
-                                LabelFileReader.BaseStream.Position = LngChk.Offset + 8 + LngChk.StringRecordsOffset;
-
-                                for (int i = 0; i < LngChk.NumberOfStringRecords; i++) // Traverse all the string records and read them
-                                {
-                                    LabelFileReader.BaseStream.Position = LngChk.Offset + 8 + LngChk.StringRecordsOffset + i * 8;
-
-                                    var StrRec = new LanguageStringRecord();
-                                    
-                                    StrRec.Hash = LabelFileReader.ReadUInt32();
-
-                                    LabelFileReader.BaseStream.Position = LngChk.Offset + 8 + LngChk.TextOffset + LabelFileReader.ReadInt32();
-                                    StrRec.Text = ReadNullTerminated(LabelFileReader);
-
-                                    /*LngChk.Strings.Add(StrRec);*/
-
-                                    foreach (LanguageStringRecord StR in LangChunks[NrLangChk].Strings)
+                                    if (GlbFile.Chunks[j].ID == (uint)ChunkID.BCHUNK_LANGUAGEHISTOGRAM)
                                     {
-                                        if (StrRec.Hash == StR.Hash)
-                                        {
-                                            StR.Label = StrRec.Text;
-                                            break;
-                                        }
+                                        HistChunk = new LanguageHistogramChunk(GlbFile.Chunks[j]); // Convert chunk type
+                                        break;
                                     }
-
                                 }
-
-                                NrLangChk++;
-                                LabelFileReader.BaseStream.Position = LngChk.Offset + 8 + LngChk.Size;
-
-                            }
-                            else
-                            {
-                                LabelFileReader.BaseStream.Position += ChkSz;
                             }
                         }
                     }
-
-                    HasLabels = true;
-
                 }
-                
 
+                // Read language chunks
+                for (int i = 0; i < LngFile.Chunks.Count; i++) // foreach doesn't allow what we do here
+                {
+                    switch (LngFile.Chunks[i].ID)
+                    {
+                        case (uint)ChunkID.BCHUNK_LANGUAGE:  // Convert chunk type
+                            if (HistChunk == null) LngFile.Chunks[i] = new LanguageChunk(LngFile.Chunks[i]);
+                            else LngFile.Chunks[i] = new LanguageChunk(LngFile.Chunks[i], HistChunk.CharacterSet);
+                            break;
+                    }
+                }
+
+                // If everything is OK, add the file to the list.
+                IsFileLoaded = true;
+                Files.Add(LngFile);
             }
 
-            if (LangChunkSelector.Items.Count > 0)
-            {
-                LangChunkSelector.SelectedItem = LangChunkSelector.Items[0];
-                StatusBarText.Text = "Ready.";
-                Text = "Labrune" + " - " + OpenLanguageFileDlg.FileName;
-                EnableMenuOptions();
+            return IsFileLoaded;
+        }
 
-                if (LangChunkSelector.Items.Count == 1) LangChunkSelector.Enabled = false;
-                else LangChunkSelector.Enabled = true;
+        public void LoadLabels(LanguageChunk LngChk)
+        {
+            foreach (var i in Files[1].Chunks)
+            {
+                if (i is LanguageChunk l)
+                {
+                    foreach (LanguageStringRecord LSR in LngChk.Strings)
+                    {
+                        LanguageStringRecord result = l.Strings.Find(x => x.Hash == LSR.Hash);
+                        if (result != null) LSR.Label = result.Text;
+                    }
+                }
+            }
+        }
+
+        public bool SaveFile(LabruneOptions Saver)
+        {
+            bool IsSavedSuccessfully = false;
+
+            String LanguageFileName = Saver.FileName;
+            if (LanguageFileName != "")
+            {
+                /* TODO: Change chunk format if required
+                foreach (Chunk i in Files[0].Chunks)
+                {
+                    if (i is LanguageChunk l)
+                    {
+                        if (l.Version != Saver.Version) // Switch chunk version
+                        {
+                            l.Version = Saver.Version;
+                        }
+                    }
+                }*/
+
+                // save into a .tmp file first
+                Files[0].FileName = LanguageFileName + ".tmp";
+                Files[0].WriteChunks();
+
+                // Create a backup of the original file
+                if (Saver.CreateBackups && System.IO.File.Exists(LanguageFileName))
+                {
+                    System.IO.File.Copy(LanguageFileName, LanguageFileName + "." + DateTime.Now.ToString("yyyyMMddHHmmss") + ".labrunebackup", false);
+                }
+
+                // Copy tmp over the language file
+                if (System.IO.File.Exists(Files[0].FileName))
+                {
+                    System.IO.File.Copy(Files[0].FileName, LanguageFileName, true);
+                    System.IO.File.Delete(Files[0].FileName);
+                    IsSavedSuccessfully = true;
+                }
+
+                // Check labels
+                if (HasLabels && Saver.AlsoSaveLabels)
+                {
+                    IsSavedSuccessfully = false;
+
+                    /* todo: Change chunk format if required
+                    foreach (Chunk i in Files[1].Chunks)
+                    {
+                        if (i is LanguageChunk l)
+                        {
+                            if (l.Version != Saver.Version) // Switch chunk version
+                            {
+                                l.Version = Saver.Version;
+                            }
+                        }
+                    }*/
+
+                    LanguageFileName = Files[1].FileName;
+                    Files[1].FileName = LanguageFileName + ".tmp";
+                    Files[1].WriteChunks();
+
+                    // Create a backup of the original file
+                    if (Saver.CreateBackups)
+                    {
+                        System.IO.File.Copy(LanguageFileName, LanguageFileName + "." + DateTime.Now.ToString("yyyyMMddHHmmss") + ".labrunebackup", false);
+                    }
+
+                    // Copy tmp over the language file
+                    if (System.IO.File.Exists(Files[1].FileName))
+                    {
+                        System.IO.File.Copy(Files[1].FileName, LanguageFileName, true);
+                        System.IO.File.Delete(Files[1].FileName);
+                        IsSavedSuccessfully = true;
+                    }
+                }
+            }
+
+            return IsSavedSuccessfully;
+        }
+
+        public bool ExportLabruneDump(LabruneExport Exporter)
+        {
+            bool IsSavedSuccessfully = false;
+
+            String TXTFileName = Exporter.FileName;
+            if (TXTFileName != "")
+            {
+                try
+                {
+                    using (StreamWriter TXTFile = new StreamWriter(TXTFileName))
+                    {
+                        TXTFile.WriteLine("#\t" + Text);
+                        TXTFile.WriteLine("#\t" + "File created on: " + DateTime.Now.ToString());
+                        TXTFile.WriteLine("#");
+                        TXTFile.WriteLine("#" + "Chunk" + "\t" + "Hash (HEX)" + "\t" + "Label" + "\t" + "Value");
+                        TXTFile.WriteLine("#" + " " + "---------------------------------------------------------------------------------------------------------");
+
+                        foreach (LanguageChunk i in LangChunks)
+                        {
+                            if (Exporter.SelectedOnly && LangChunks.IndexOf(i) != CurrentChunk) // If exporter it set to the current chunk only and we aren't on it
+                            {
+                                continue; // skip the chunk
+                            }
+
+                            string ChunkName = (String.IsNullOrEmpty(i.Category) ? "GLOBAL" : i.Category).Trim('\0', ' ');
+                            TXTFile.WriteLine("# Chunk " + LangChunks.IndexOf(i) + (String.IsNullOrEmpty(ChunkName) ? "" : " - " + ChunkName));
+
+                            foreach (LanguageStringRecord sR in i.Strings)
+                            {
+                                bool Next = false;
+
+                                switch (Exporter.EntriesToExport) // Check which entries to export
+                                {
+                                    case -1: // Unmodified
+                                        Next = sR.IsModified; // Skip if modified
+                                        break;
+                                    case 1: // Modified
+                                        Next = !sR.IsModified; // Skip if unmodified
+                                        break;
+                                }
+
+                                if (Next) continue;
+
+                                bool IsLabelFile = Files[0].FileName.Contains("Labels");
+                                bool IsLabelTrue = ((uint)BinHash.Hash(sR.Label) == sR.Hash);
+                                string Hash = (IsLabelTrue ? "AUTO" : sR.Hash.ToString("X8")).Trim('\0', ' ');
+                                string Label = (String.IsNullOrWhiteSpace(sR.Label) ? "0x" + sR.Hash.ToString("X8") : sR.Label).Trim('\0', ' ');
+                                string Text = (IsLabelFile ? Label : sR.Text).Trim('\0', ' ');
+
+                                // Export the entry
+                                TXTFile.WriteLine("{0}\t{1}\t{2}\t{3}",
+                                                    LangChunks.IndexOf(i), // {0} Chunk ID
+                                                    Hash, // {1} Hash
+                                                    Label, // {2} Label
+                                                    Text); // {3} String
+                            }
+                        }
+
+                        IsSavedSuccessfully = true;
+                    }
+
+                }
+                catch (Exception ex)
+                {
+                    IsSavedSuccessfully = false;
+                }
+            }
+
+            return IsSavedSuccessfully;
+        }
+
+        public bool ExportEndScript(LabruneExport Exporter)
+        {
+            bool IsSavedSuccessfully = false;
+
+            // Detect file names
+            if (Exporter.FileName != "")
+            {
+                var EndScriptFiles = new List<string>();
+
+                if (Exporter.EndScriptLang == 0) // Current language only
+                {
+                    EndScriptFiles.Add(Exporter.FileName);
+                }
+                else // All languages (choose file names according to the one we opened)
+                {
+                    string FileSuffix = ".bin"; // All good old files
+                                                // Get .bin files and filter them according to the file we are working on
+                    if (Files[0].FileName.Contains("_Global")) // NFSC+
+                    {
+                        FileSuffix = "_Global.bin";
+                    }
+                    else if (Files[0].FileName.Contains("_Frontend")) // NFSC, NFSPS, NFSUC
+                    {
+                        FileSuffix = "_Frontend.bin";
+                    }
+                    else if (Files[0].FileName.Contains("_InGame")) // NFSC, NFSPS, NFSUC
+                    {
+                        FileSuffix = "_InGame.bin";
+                    }
+                    else if (Files[0].FileName.Contains("_Global_DLC")) // NFSPS
+                    {
+                        FileSuffix = "_Global_DLC.bin";
+                    }
+                    else if (Files[0].FileName.Contains("_Subtitles")) // NFSUC
+                    {
+                        FileSuffix = "_Subtitles.bin";
+                    }
+                    else if (Files[0].FileName.Contains("_Supplement")) // NFSUC
+                    {
+                        FileSuffix = "_Supplement.bin";
+                    }
+
+                    var LanguageFiles = Directory.GetFiles(Path.GetDirectoryName(Files[0].FileName)).Where(s => s.EndsWith(FileSuffix, StringComparison.OrdinalIgnoreCase));
+
+                    foreach (String FileName in LanguageFiles) EndScriptFiles.Add(Path.Combine(Path.GetDirectoryName(Exporter.FileName), Path.GetFileNameWithoutExtension(FileName) + ".end")); // Change format to end and add to the list
+                }
+
+                // Now write the files
+                foreach (string FileName in EndScriptFiles)
+                {
+                    if (FileName.Contains("LanguageTextures")) continue; // Skip LanguageTextures.bin
+
+                    try
+                    {
+                        using (StreamWriter ENDFile = new StreamWriter(FileName))
+                        {
+                            string LanguageFileName = Path.GetFileName(FileName);
+                            // Header
+                            ENDFile.WriteLine("[VERSN2]");
+                            ENDFile.WriteLine("// " + Text);
+                            ENDFile.WriteLine("// " + "File created on: " + DateTime.Now.ToString());
+                            ENDFile.WriteLine();
+                            // New negate so the user doesn't have to add it to their end launcher
+                            ENDFile.WriteLine("if file_exists absolute Languages\\" + LanguageFileName);
+                            ENDFile.WriteLine("do");
+                            ENDFile.WriteLine("new negate Languages\\" + LanguageFileName);
+                            ENDFile.WriteLine();
+
+                            foreach (LanguageChunk i in LangChunks)
+                            {
+                                if (Exporter.SelectedOnly && LangChunks.IndexOf(i) != CurrentChunk) // If exporter it set to the current chunk only and we aren't on it
+                                {
+                                    continue; // skip the chunk
+                                }
+
+                                string ChunkName = (String.IsNullOrEmpty(i.Category) ? "GLOBAL" : i.Category).Trim('\0', ' ');
+
+                                ENDFile.WriteLine("// Chunk " + LangChunks.IndexOf(i) + (String.IsNullOrEmpty(ChunkName) ? "" : " - " + ChunkName));
+                                ENDFile.WriteLine();
+
+                                foreach (LanguageStringRecord sR in i.Strings)
+                                {
+                                    bool Next = false;
+
+                                    switch (Exporter.EntriesToExport) // Check which entries to export
+                                    {
+                                        case -1: // Unmodified
+                                            Next = sR.IsModified; // Skip if modified
+                                            break;
+                                        case 1: // Modified
+                                            Next = !sR.IsModified; // Skip if unmodified
+                                            break;
+                                    }
+
+                                    if (Next) continue;
+
+                                    bool IsLabelFile = FileName.Contains("Labels");
+                                    bool IsLabelTrue = ((uint)BinHash.Hash(sR.Label) == sR.Hash);
+                                    string Hash = (IsLabelTrue ? "AUTO" : "0x" + sR.Hash.ToString("X8")).Trim('\0', ' ');
+                                    string Label = (String.IsNullOrWhiteSpace(sR.Label) ? "0x" + sR.Hash.ToString("X8") : sR.Label).Trim('\0', ' ');
+                                    string Text = (IsLabelFile ? Label : sR.Text).Trim('\0', ' ');
+
+                                    // Export the entry
+                                    if (Exporter.UseAddOrUpdate) // add_or_update_string
+                                    {
+                                        ENDFile.WriteLine("add_or_update_string {0} STRBlocks {1} {2} {3} \"{4}\"",
+                                                        "Languages\\" + LanguageFileName, // {0} File name
+                                                        ChunkName, // {1} Chunk name
+                                                        Hash, // {2} Hash
+                                                        Label, // {3} Label
+                                                        Text); // {4} String
+
+                                    }
+                                    else // if string_exists...
+                                    {
+                                        ENDFile.WriteLine("if string_exists absolute {0} STRBlocks {1} {2}",
+                                                        "Languages\\" + LanguageFileName, // {0} File name
+                                                        ChunkName, // {1} Chunk name
+                                                        Label); // {2} Label
+                                        ENDFile.WriteLine("do");
+                                        ENDFile.WriteLine("update_string {0} STRBlocks {1} {2} Text \"{3}\"",
+                                                        "Languages\\" + LanguageFileName, // {0} File name
+                                                        ChunkName, // {1} Chunk name
+                                                        Label, // {2} Label
+                                                        Text); // {3} String
+                                        ENDFile.WriteLine("else");
+                                        ENDFile.WriteLine("add_string {0} STRBlocks {1} {2} {3} \"{4}\"",
+                                                        "Languages\\" + LanguageFileName, // {0} File name
+                                                        ChunkName, // {1} Chunk name
+                                                        Hash, // {2} Hash
+                                                        Label, // {3} Label
+                                                        Text); // {4} String
+                                        ENDFile.WriteLine("end");
+                                        ENDFile.WriteLine();
+                                    }
+                                }
+
+                                ENDFile.WriteLine();
+                            }
+
+                            ENDFile.WriteLine("delete Languages\\" + LanguageFileName);
+                            ENDFile.WriteLine("else // do nothing");
+                            ENDFile.WriteLine("end");
+                            ENDFile.WriteLine();
+
+                            IsSavedSuccessfully = true;
+                        }
+
+                    }
+                    catch (Exception ex)
+                    {
+                        IsSavedSuccessfully = false;
+                    }
+                }
+            }
+
+            return IsSavedSuccessfully;
+        }
+
+        public bool RestoreBackups(LabruneRestore Restorer)
+        {
+            bool IsRestoredSuccessfully = false;
+
+            string OriginalFileName, CutFileName;
+
+            foreach (var FileToRestore in Restorer.FilesToRestoreSelected)
+            {
+                try
+                {
+                    // Get original name first (keep removing the file extensions till we get the pure file name)
+                    OriginalFileName = Path.GetFileNameWithoutExtension(FileToRestore);
+
+                    for (int i = 10; i > 0; i--) // 10 times so we don't have an infinite loop attempting to remove extensions from the name
+                    {
+                        CutFileName = Path.GetFileNameWithoutExtension(OriginalFileName);
+                        if (OriginalFileName == CutFileName) break;
+                        else OriginalFileName = CutFileName;
+                    }
+
+                    OriginalFileName += ".bin"; // finally add .bin
+
+                    // Copy & overwrite the original file to restore the backup
+                    System.IO.File.Copy(Path.Combine(Restorer.BackupDirectory, FileToRestore), Path.Combine(Restorer.BackupDirectory, OriginalFileName), true);
+
+                    IsRestoredSuccessfully = true;
+                }
+                catch (Exception)
+                {
+                    IsRestoredSuccessfully = false;
+                    break;
+                }
+            }
+
+            return IsRestoredSuccessfully;
+        }
+
+        public void RestoreFile(string FileName)
+        {
+            bool IsRestoredSuccessfully = false;
+
+            // Show restore dialog
+            Restorer.BackupDirectory = Path.GetDirectoryName(FileName);
+            Restorer.InitBackups();
+            if (Restorer.FilesToRestore.Count > 0)
+            {
+                var Result = Restorer.ShowDialog();
+
+                if (Result == DialogResult.OK)
+                {
+                    if (Restorer.FilesToRestoreSelected.Count < 1)
+                    {
+                        ThrowError("Labrune", "Error", "No backups are selected to restore.");
+                        return;
+                    }
+
+                    TaskDialog RstrDialog = new TaskDialog()
+                    {
+                        StandardButtons = TaskDialogStandardButtons.Yes | TaskDialogStandardButtons.No,
+                        Icon = TaskDialogStandardIcon.Warning,
+                        InstructionText = "Restore backups?",
+                        Caption = "Labrune",
+                        Text = "Are you sure you want to restore " + Restorer.FilesToRestoreSelected.Count + " backup(s)?" + Environment.NewLine + "After this operation, Labrune will reload the current file in case it gets replaced."
+                    };
+                    var result = RstrDialog.Show();
+
+                    if (result == TaskDialogResult.No) return;
+
+                    IsRestoredSuccessfully = RestoreBackups(Restorer); // Restore the backups
+
+                    if (IsRestoredSuccessfully)
+                    {
+                        ThrowInfo("Labrune", "Done!", "Succesfully restored the selected backup(s) in " + Path.GetDirectoryName(Restorer.BackupDirectory) + "." + Environment.NewLine + "Labrune will now reload the current file.");
+                        OpenFile(FileName);
+                    }
+                    else ThrowError("Labrune", "Export Error", "Labrune was unable to restore the selected backup(s) in " + Path.GetDirectoryName(Restorer.BackupDirectory) + "." + Environment.NewLine + "The file(s) may be currently used, corrupt or Labrune doesn't have enough permissions to make file operations here.");
+                }
+            }
+            else ThrowError("Labrune", "Error", "Labrune could not find any backups to restore.");
+        }
+
+        public void OpenFile(string FileName)
+        {
+            if (System.IO.File.Exists(FileName))
+            {
+                // Initialize
+                foreach (LanguageChunk c in LangChunks) c.Strings.Clear();
+                LangChunks.Clear();
+                Files.Clear();
+                LangChunkSelector.Items.Clear();
+                HistChunk = null;
+
+                int NrLangChk = 0;
+
+                bool IsFileLoaded = LoadFile(FileName); // Read the file
+
+                if (IsFileLoaded)
+                {
+                    // Check for labels file
+                    if (!Files[0].FileName.Contains("Labels"))
+                    {
+                        String fPath = Path.GetDirectoryName(Files[0].FileName);
+                        String fNameWOExt = Path.GetFileNameWithoutExtension(Files[0].FileName);
+                        String fExt = Path.GetExtension(Files[0].FileName);
+
+                        String fType = fNameWOExt.LastIndexOf('_') == -1 ? "" : fNameWOExt.Substring(fNameWOExt.LastIndexOf('_'));
+                        String LabelFileName = Path.Combine(fPath, "Labels" + (String.IsNullOrEmpty(fType) ? "" : fType) + fExt);
+
+                        if (System.IO.File.Exists(LabelFileName))
+                        {
+                            IsFileLoaded = LoadFile(LabelFileName);
+                            if (IsFileLoaded) HasLabels = true;
+                        }
+                        else HasLabels = false;
+                    }
+                    else HasLabels = false;
+
+                    foreach (var i in Files[0].Chunks)
+                    {
+                        if (i is LanguageChunk l)
+                        {
+                            LangChunks.Add(l);
+                            if (HasLabels) LoadLabels(l);
+                            LangChunkSelector.Items.Add("[Language: " + l.Version.ToString() + "] #" + NrLangChk++ + (String.IsNullOrEmpty(l.Category) ? "" : (" - " + l.Category)));
+                        }
+                    }
+
+                    if (LangChunkSelector.Items.Count > 0)
+                    {
+                        LangChunkSelector.SelectedItem = LangChunkSelector.Items[0];
+                        StatusBarText.Text = "Ready.";
+                        Text = "Labrune" + " - " + FileName;
+                        EnableMenuOptions();
+
+                        if (LangChunkSelector.Items.Count == 1) LangChunkSelector.Enabled = false;
+                        else LangChunkSelector.Enabled = true;
+                    }
+                    else
+                    {
+                        ThrowError("Labrune", "Error!", "The file contains no language chunks.");
+                        StatusBarText.Text = "No language chunks are detected in the selected file.";
+                        DisableMenuOptions();
+                        LangChunkSelector.Enabled = false;
+                    }
+                }
+                else
+                {
+                    TaskDialog RstrDialog = new TaskDialog()
+                    {
+                        StandardButtons = TaskDialogStandardButtons.Yes | TaskDialogStandardButtons.No,
+                        Icon = TaskDialogStandardIcon.Error,
+                        InstructionText = "Error!",
+                        Caption = "Labrune",
+                        Text = "The file is in an invalid format." + Environment.NewLine + "Would you like to restore a backup of it?"
+                    };
+                    var result = RstrDialog.Show();
+
+                    if (result == TaskDialogResult.No)
+                    {
+                        StatusBarText.Text = "Invalid file.";
+                        DisableMenuOptions();
+                        LangChunkSelector.Enabled = false;
+                    }
+                    else RestoreFile(FileName);
+                }
             }
             else
             {
-                StatusBarText.Text = "No language chunks are detected in the selected file.";
+                ThrowError("Labrune", "Error!", "File doesn't exist or can't be accessed.");
+                StatusBarText.Text = "File doesn't exist or can't be accessed.";
                 DisableMenuOptions();
                 LangChunkSelector.Enabled = false;
             }
         }
 
+        private void openToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (OpenLanguageFileDlg.ShowDialog() == DialogResult.OK)
+            {
+                OpenFile(OpenLanguageFileDlg.FileName);
+            }
+        }
+
         private void LangChunkSelector_SelectedIndexChanged(object sender, EventArgs e)
         {
-            ModifiedValuesIndexes.Clear();
+            // Clear find results
             FoundValuesIndexes.Clear();
-
             FindNextToolStripMenuItem.Enabled = false;
             FindPreviousToolStripMenuItem.Enabled = false;
+
+            // Rebuild modified indexes list
+            ModifiedValuesIndexes.Clear();
+            NextModifiedToolStripMenuItem.Enabled = false;
+            PrevModifiedToolStripMenuItem.Enabled = false;
 
             RefreshStringView();
         }
 
         private void fontSettingsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if(FontSettingsDlg.ShowDialog() == DialogResult.OK)
+            if (FontSettingsDlg.ShowDialog() == DialogResult.OK)
             {
                 LangStringView.Font = FontSettingsDlg.Font;
             }
@@ -464,7 +905,7 @@ namespace Labrune
                 {
                     EditStringRecord(uint.Parse(StringEditor.Hash, System.Globalization.NumberStyles.HexNumber), uint.Parse(StringEditor.NewHash, System.Globalization.NumberStyles.HexNumber), StringEditor.NewLabel, StringEditor.NewValue);
                 }
-                
+
             }
 
             else
@@ -477,17 +918,8 @@ namespace Labrune
         {
             if (IsFileModified == true)
             {
-                //DialogResult result = MessageBox.Show("Would you like to save your changes before quitting?", "Labrune", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Exclamation);
-
                 TaskDialog ExitDialog = new TaskDialog();
                 ExitDialog.StandardButtons = TaskDialogStandardButtons.Yes | TaskDialogStandardButtons.No | TaskDialogStandardButtons.Cancel;
-
-                if (HasLabels && Properties.Settings.Default.AlsoSaveLabels)
-                {
-                    ExitDialog.FooterText = "This operation will also save Labels file.";
-                    ExitDialog.FooterIcon = TaskDialogStandardIcon.Information;
-                }
-
                 ExitDialog.Icon = TaskDialogStandardIcon.Warning;
                 ExitDialog.InstructionText = "Save?";
                 ExitDialog.Caption = "Labrune";
@@ -518,15 +950,15 @@ namespace Labrune
             {
                 try
                 {
-                    FileStream TXTFileStream = File.Open(OpenLabruneDumpDialog.FileName, FileMode.Open);
+                    FileStream TXTFileStream = System.IO.File.Open(OpenLabruneDumpDialog.FileName, FileMode.Open);
 
                     using (StreamReader TXTFile = new StreamReader(TXTFileStream))
                     {
                         while ((TXTLineBuffer = TXTFile.ReadLine()) != null)
                         {
-                            if (!TXTLineBuffer.StartsWith("#")) // If it's not a comment
+                            if (!TXTLineBuffer.StartsWith("#") && !TXTLineBuffer.StartsWith("//")) // If it's not a comment
                             {
-                                char[] charsToTrim = {'\t'};
+                                char[] charsToTrim = { '\t' };
                                 String[] Parts = TXTLineBuffer.Split(charsToTrim, StringSplitOptions.None);
 
                                 if (Parts.Length >= 4)
@@ -540,8 +972,21 @@ namespace Labrune
                                         CurrentChunk = Int32.Parse(Parts[0]); // Switch to the specified chunk
                                         if (CurrentChunk <= LangChunks.Count)
                                         {
-                                            AddNewStringRecord_NoUpdate(UInt32.Parse(Parts[1], System.Globalization.NumberStyles.HexNumber), Parts[2], LabruneString);
-                                            ImportedEntries++;
+                                            uint ParsedStringHash = 0;
+
+                                            if (Parts[1] == "AUTO")
+                                            {
+                                                AddNewStringRecord_NoUpdate((uint)BinHash.Hash(Parts[2]), Parts[2], LabruneString.TrimEnd('\t'));
+                                                ImportedEntries++;
+                                            }
+
+                                            else if (UInt32.TryParse(Parts[1].StartsWith("0x") ? Parts[1].Substring(2) : Parts[1], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out ParsedStringHash) == true)
+                                            {
+                                                AddNewStringRecord_NoUpdate(ParsedStringHash, Parts[2], LabruneString.TrimEnd('\t'));
+                                                ImportedEntries++;
+                                            }
+                                            else IgnoredEntries++;
+
                                         }
                                         else IgnoredEntries++;
 
@@ -608,7 +1053,7 @@ namespace Labrune
 
             if (item != null)
             {
-                RemoveStringRecord(uint.Parse(item.SubItems[1].Text,System.Globalization.NumberStyles.HexNumber));
+                RemoveStringRecord(uint.Parse(item.SubItems[1].Text, System.Globalization.NumberStyles.HexNumber));
             }
 
             else
@@ -656,6 +1101,7 @@ namespace Labrune
                 if (item.BackColor == Color.LightGreen)
                 {
                     item.BackColor = Color.FromKnownColor(KnownColor.Window);
+                    item.ForeColor = Color.FromKnownColor(KnownColor.WindowText);
                 }
             }
 
@@ -676,6 +1122,7 @@ namespace Labrune
                             {
                                 FoundValuesIndexes.Add(item.Index);
                                 item.BackColor = Color.LightGreen; // Mark results
+                                item.ForeColor = Color.Black; // Mark results
                             }
                         }
                     }
@@ -686,10 +1133,11 @@ namespace Labrune
                         {
                             var enUS = new System.Globalization.CultureInfo("en-US");
 
-                            if (item.SubItems[1].Text.ToUpper(enUS).Contains(unhexifiedStr.ToUpper(enUS))|| item.SubItems[2].Text.ToUpper(enUS).Contains(Finder.ValueToFind.ToUpper(enUS)) || item.SubItems[3].Text.ToUpper(enUS).Contains(Finder.ValueToFind.ToUpper(enUS)))
+                            if (item.SubItems[1].Text.ToUpper(enUS).Contains(unhexifiedStr.ToUpper(enUS)) || item.SubItems[2].Text.ToUpper(enUS).Contains(Finder.ValueToFind.ToUpper(enUS)) || item.SubItems[3].Text.ToUpper(enUS).Contains(Finder.ValueToFind.ToUpper(enUS)))
                             {
                                 FoundValuesIndexes.Add(item.Index);
                                 item.BackColor = Color.LightGreen; // Mark results
+                                item.ForeColor = Color.Black; // Mark results
                             }
                         }
                     }
@@ -704,6 +1152,7 @@ namespace Labrune
                             {
                                 FoundValuesIndexes.Add(item.Index);
                                 item.BackColor = Color.LightGreen; // Mark results
+                                item.ForeColor = Color.Black; // Mark results
                             }
                         }
                     }
@@ -716,11 +1165,12 @@ namespace Labrune
                             {
                                 FoundValuesIndexes.Add(item.Index);
                                 item.BackColor = Color.LightGreen; // Mark results
+                                item.ForeColor = Color.Black; // Mark results
                             }
                         }
                     }
                 }
-                
+
                 if (FoundValuesIndexes.Count != 0)
                 {
                     FindIndex = 0;
@@ -819,7 +1269,7 @@ namespace Labrune
                             }
                             else IgnoredEntries++;
                         }
-                        
+
                         catch (Exception)
                         {
                             IgnoredEntries++;
@@ -943,13 +1393,13 @@ namespace Labrune
             {
                 try
                 {
-                    FileStream TXTFileStream = File.Open(OpenLangEdDumpDialog.FileName, FileMode.Open);
+                    FileStream TXTFileStream = System.IO.File.Open(OpenLangEdDumpDialog.FileName, FileMode.Open);
 
                     using (StreamReader TXTFile = new StreamReader(TXTFileStream))
                     {
                         while ((TXTLineBuffer = TXTFile.ReadLine()) != null)
                         {
-                            char[] charsToTrim = {'\t'};
+                            char[] charsToTrim = { '\t' };
                             String[] Parts = TXTLineBuffer.Split(charsToTrim, StringSplitOptions.None);
 
                             if (Parts.Length >= 3)
@@ -966,7 +1416,7 @@ namespace Labrune
                                         AddNewStringRecord_NoUpdate(LangEdHash, Parts[1], LangEdString); // Add
                                         ImportedEntries++;
                                     }
-                                        
+
                                 }
                                 catch (Exception)
                                 {
@@ -1008,61 +1458,6 @@ namespace Labrune
             }
         }
 
-        private void TextFileToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            if (ExportFileDialog.ShowDialog() == DialogResult.OK)
-            {
-                String TXTFileName = ExportFileDialog.FileName.ToString();
-                if (TXTFileName != "")
-                {
-                    try
-                    {
-                        using (StreamWriter TXTFile = new StreamWriter(TXTFileName))
-                        {
-                            TXTFile.WriteLine("#\t" + Text);
-                            TXTFile.WriteLine("#\t" + "File created on: " + DateTime.Now.ToString());
-                            TXTFile.WriteLine("#");
-                            TXTFile.WriteLine("#" + "Chunk" + "\t" + "Hash (HEX)" + "\t" + "Label" + "\t" + "Value");
-                            TXTFile.WriteLine("#" + " " + "---------------------------------------------------------------------------------------------------------");
-
-                            foreach (LanguageChunk i in LangChunks)
-                            {
-                                TXTFile.WriteLine("# Chunk " + LangChunks.IndexOf(i) + (String.IsNullOrEmpty(i.Category) ? "" : " - " + i.Category));
-                                foreach (LanguageStringRecord sR in i.Strings)
-                                {
-                                    TXTFile.WriteLine("{0}\t{1}\t{2}\t{3}", LangChunks.IndexOf(i), sR.Hash.ToString("X8"), sR.Label, sR.Text);
-                                }
-                            }
-
-                            //MessageBox.Show("All values are exported into" + "\n" + TXTFileName, "Labrune", MessageBoxButtons.OK);
-                            TaskDialog MsgDialog = new TaskDialog();
-                            MsgDialog.StandardButtons = TaskDialogStandardButtons.Ok;
-                            MsgDialog.Icon = TaskDialogStandardIcon.Information;
-                            MsgDialog.InstructionText = "Done!";
-                            MsgDialog.Caption = "Labrune";
-                            MsgDialog.Text = "All values are exported into" + " " + TXTFileName;
-                            MsgDialog.Show();
-                        }
-
-                    }
-                    catch (Exception ex)
-                    {
-                        //MessageBox.Show("Values could not be exported.", "Labrune", MessageBoxButtons.OK);
-                        TaskDialog ErrDialog = new TaskDialog();
-                        ErrDialog.StandardButtons = TaskDialogStandardButtons.Ok;
-                        ErrDialog.Icon = TaskDialogStandardIcon.Error;
-                        ErrDialog.InstructionText = "Error!";
-                        ErrDialog.Caption = "Labrune";
-                        ErrDialog.Text = "Values could not be exported.";
-                        ErrDialog.DetailsExpanded = false;
-                        ErrDialog.DetailsExpandedText = ex.ToString();
-                        ErrDialog.ExpansionMode = TaskDialogExpandedDetailsLocation.ExpandFooter;
-                        ErrDialog.Show();
-                    }
-                }
-            }
-        }
-
         private void ReCompilerOldToolStripMenuItem_Click(object sender, EventArgs e)
         {
             String TXTLineBuffer;
@@ -1073,7 +1468,7 @@ namespace Labrune
             {
                 try
                 {
-                    FileStream TXTFileStream = File.Open(OpenReCompilerIniDialog.FileName, FileMode.Open);
+                    FileStream TXTFileStream = System.IO.File.Open(OpenReCompilerIniDialog.FileName, FileMode.Open);
 
                     using (StreamReader TXTFile = new StreamReader(TXTFileStream))
                     {
@@ -1139,19 +1534,7 @@ namespace Labrune
 
         private void NextModifiedToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (ModifiedValuesIndexes.Count == 0)
-            {
-                foreach (ListViewItem item in LangStringView.Items)
-                {
-                    if (item.BackColor == Color.LightYellow)
-                    {
-                        ModifiedValuesIndexes.Add(item.Index);
-                    }
-                }
-                ModifyIndex = 0;
-            }
-
-            if (ModifiedValuesIndexes.Count != 0)
+            if (ModifiedValuesIndexes.Count > 0)
             {
                 ModifyIndex = (ModifyIndex + 1) % ModifiedValuesIndexes.Count;
                 LangStringView.SelectedIndices.Clear();
@@ -1163,19 +1546,7 @@ namespace Labrune
 
         private void PrevModifiedToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (ModifiedValuesIndexes.Count == 0)
-            {
-                foreach (ListViewItem item in LangStringView.Items)
-                {
-                    if (item.BackColor == Color.LightYellow)
-                    {
-                        ModifiedValuesIndexes.Add(item.Index);
-                    }
-                }
-                ModifyIndex = 0;
-            }
-
-            if (ModifiedValuesIndexes.Count != 0)
+            if (ModifiedValuesIndexes.Count > 0)
             {
                 ModifyIndex = (ModifyIndex - 1 + ModifiedValuesIndexes.Count) % ModifiedValuesIndexes.Count;
                 LangStringView.SelectedIndices.Clear();
@@ -1186,272 +1557,24 @@ namespace Labrune
 
         private void SaveToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            // Start dialog from the location of opened file
-            SaveLanguageFileDlg.InitialDirectory = Path.GetDirectoryName(OpenLanguageFileDlg.FileName);
+            bool IsSavedSuccessfully = false;
 
-            if (SaveLanguageFileDlg.ShowDialog() == DialogResult.OK)
+            Saver.FileName = Files[0].FileName;
+            Saver.Version = LangChunks[0].Version;
+            Saver.EnableLabelsOption(HasLabels);
+
+            var Result = Saver.ShowDialog();
+
+            if (Result == DialogResult.OK)
             {
-                try
+                IsSavedSuccessfully = SaveFile(Saver);
+
+                if (IsSavedSuccessfully)
                 {
-                    String LanguageFileName = SaveLanguageFileDlg.FileName;
-                    String LabelFileType = SaveLanguageFileDlg.FileName.LastIndexOf('_') == -1 ? "" : SaveLanguageFileDlg.FileName.Substring(SaveLanguageFileDlg.FileName.LastIndexOf('_'));
-                    String LabelFileName = Path.Combine(Path.GetDirectoryName(SaveLanguageFileDlg.FileName), "Labels" + (String.IsNullOrEmpty(LabelFileType) ? ".bin" : LabelFileType));
-                    int NrChkToWrite = 0;
-
-                    // Re-read the opened file to take other chunks from it
-                    MemoryStream LangFileStream = DecryptWorldLanguageFile(OpenLanguageFileDlg.FileName);
-                    var LangFileWriter = new BinaryWriter(File.Create(LanguageFileName + ".tmp"));
-
-                    using (BinaryReader StringFileReader = new BinaryReader(LangFileStream))
-                    {
-                        while (StringFileReader.BaseStream.Position < StringFileReader.BaseStream.Length)
-                        {
-                            int ChkOffset = (int)LangFileWriter.BaseStream.Position;
-                            uint ChkID = StringFileReader.ReadUInt32();
-                            int ChkSz = StringFileReader.ReadInt32();
-
-                            if (ChkID == 0x00039000) // 00 90 03 00 - BCHUNK_LANGUAGE
-                            {
-                                if (NrChkToWrite <= LangChunks.Count)
-                                {
-                                    // Create hash and string tables
-                                    var LanguageHashTable = new MemoryStream();
-                                    var LanguageStringTable = new MemoryStream();
-                                    var LanguageHashTableWriter = new BinaryWriter(LanguageHashTable);
-                                    var LanguageStringTableWriter = new BinaryWriter(LanguageStringTable);
-
-                                    foreach(LanguageStringRecord StrRec in LangChunks[NrChkToWrite].Strings)
-                                    {
-                                        // Write hash and offset for the hashes table
-                                        LanguageHashTableWriter.Write(StrRec.Hash);
-                                        LanguageHashTableWriter.Write((int)LanguageStringTableWriter.BaseStream.Position);
-
-                                        // Write string for the strings table
-                                        LanguageStringTableWriter.Write(Encoding.GetEncoding("ISO-8859-1").GetBytes(StrRec.Text + "\0"));
-                                    }
-
-                                    // Fix strings table size to %4
-                                    int PaddingDifference = ((int)LanguageStringTableWriter.BaseStream.Length % 4);
-                                    while (PaddingDifference != 0)
-                                    {
-                                        LanguageStringTableWriter.Write((byte)0);
-                                        PaddingDifference = (PaddingDifference + 1) % 4;
-                                    }
-
-                                    if (LangChunks[NrChkToWrite].Version == LanguageFileVersion.Old) // U, U2, MW
-                                    {
-                                        LangFileWriter.Write(ChkID);
-                                        LangFileWriter.Write((int)-1); // will be fixed after writing everything
-                                        LangFileWriter.Write((int)0x10);
-                                        LangFileWriter.Write(LangChunks[NrChkToWrite].Strings.Count);
-                                        LangFileWriter.Write((int)(0x10 + LangChunks[NrChkToWrite].UnkData.Length)); // Hash table offset
-                                        LangFileWriter.Write((int)(0x10 + LangChunks[NrChkToWrite].UnkData.Length + LanguageHashTableWriter.BaseStream.Length)); // String table offset
-                                        LangFileWriter.Write(LangChunks[NrChkToWrite].UnkData);
-                                        LangFileWriter.Write(LanguageHashTable.ToArray());
-                                        LangFileWriter.Write(LanguageStringTable.ToArray());
-
-                                    }
-                                    else // C, PS, UC, W
-                                    {
-                                        LangFileWriter.Write(ChkID);
-                                        LangFileWriter.Write((int)-1); // will be fixed after writing everything
-                                        LangFileWriter.Write(LangChunks[NrChkToWrite].Strings.Count);
-                                        LangFileWriter.Write((int)(0x1C)); // Hash table offset
-                                        LangFileWriter.Write((int)(0x1C + LanguageHashTableWriter.BaseStream.Length)); // String table offset
-                                        byte[] LangFileCategory = Encoding.GetEncoding("ISO-8859-1").GetBytes(LangChunks[NrChkToWrite].Category);
-                                        Array.Resize(ref LangFileCategory, 16);
-                                        LangFileWriter.Write(LangFileCategory);
-                                        LangFileWriter.Write(LanguageHashTable.ToArray());
-                                        LangFileWriter.Write(LanguageStringTable.ToArray());
-                                    }
-
-                                    LanguageStringTableWriter.Dispose();
-                                    LanguageStringTableWriter.Close();
-                                    LanguageStringTable.Dispose();
-                                    LanguageStringTable.Close();
-                                    LanguageHashTableWriter.Dispose();
-                                    LanguageHashTableWriter.Close();
-                                    LanguageHashTable.Dispose();
-                                    LanguageHashTable.Close();
-                                }
-
-                                NrChkToWrite++;
-
-                                // Write Chunk Size
-                                int ChkEndOffset = (int)LangFileWriter.BaseStream.Position; // Get where we are
-                                LangFileWriter.BaseStream.Position = ChkOffset + 4; // Go back to chunk size
-                                LangFileWriter.Write(ChkEndOffset - ChkOffset - 8); // Chunk Size = End - Start - 8
-                                LangFileWriter.BaseStream.Position = ChkEndOffset; // Go back where we are
-
-                                // Process the other file
-                                StringFileReader.BaseStream.Position += ChkSz; // for other chunks
-                            }
-
-                            else // Copy existing data from the file
-                            {
-                                LangFileWriter.Write(ChkID);
-                                LangFileWriter.Write(ChkSz);
-                                LangFileWriter.Write(StringFileReader.ReadBytes((ChkSz)));
-                            }
-                        }
-                    }
-
-                    LangFileWriter.Dispose();
-                    LangFileWriter.Close();
-
-                    // Take a backup
-                    if (Properties.Settings.Default.CreateBackups) File.Copy(LanguageFileName, LanguageFileName + "." + DateTime.Now.ToString("yyyyMMddHHmmss") + ".labrunebackup", false);
-
-                    // Copy tmp over the language file
-                    if (File.Exists(LanguageFileName + ".tmp"))
-                    {
-                        File.Copy(LanguageFileName + ".tmp", LanguageFileName, true);
-                        File.Delete(LanguageFileName + ".tmp");
-                    }
-                        
-                    
-                    // Label time!
-                    if (File.Exists(LabelFileName) && HasLabels && Properties.Settings.Default.AlsoSaveLabels)
-                    {
-                        NrChkToWrite = 0;
-
-                        // Re-read the opened label file to take other chunks from it
-                        MemoryStream LabelFileStream = DecryptWorldLanguageFile(LabelFileName);
-                        var LabelFileWriter = new BinaryWriter(File.Create(LabelFileName + ".tmp"));
-
-                        using (BinaryReader LabelFileReader = new BinaryReader(LabelFileStream))
-                        {
-                            while (LabelFileReader.BaseStream.Position < LabelFileReader.BaseStream.Length)
-                            {
-                                int ChkOffset = (int)LabelFileWriter.BaseStream.Position;
-                                uint ChkID = LabelFileReader.ReadUInt32();
-                                int ChkSz = LabelFileReader.ReadInt32();
-
-                                if (ChkID == 0x00039000) // 00 90 03 00 - BCHUNK_LANGUAGE
-                                {
-                                    if (NrChkToWrite <= LangChunks.Count)
-                                    {
-                                        // Create hash and string tables
-                                        var LabelHashTable = new MemoryStream();
-                                        var LabelStringTable = new MemoryStream();
-                                        var LabelHashTableWriter = new BinaryWriter(LabelHashTable);
-                                        var LabelStringTableWriter = new BinaryWriter(LabelStringTable);
-
-                                        foreach (LanguageStringRecord StrRec in LangChunks[NrChkToWrite].Strings)
-                                        {
-                                            // Write hash and offset for the hashes table
-                                            LabelHashTableWriter.Write(StrRec.Hash);
-                                            LabelHashTableWriter.Write((int)LabelStringTableWriter.BaseStream.Position);
-
-                                            // Write labels for the strings table
-                                            LabelStringTableWriter.Write(Encoding.GetEncoding("ISO-8859-1").GetBytes(StrRec.Label + "\0"));
-                                        }
-
-                                        // Fix strings table size to %4
-                                        int PaddingDifference = ((int)LabelStringTableWriter.BaseStream.Length % 4);
-                                        while (PaddingDifference != 0)
-                                        {
-                                            LabelStringTableWriter.Write((byte)0);
-                                            PaddingDifference = (PaddingDifference + 1) % 4;
-                                        }
-
-                                        if (LangChunks[NrChkToWrite].Version == LanguageFileVersion.Old) // U, U2, MW
-                                        {
-                                            LabelFileWriter.Write(ChkID);
-                                            LabelFileWriter.Write((int)-1); // will be fixed after writing everything
-                                            LabelFileWriter.Write((int)0x10);
-                                            LabelFileWriter.Write(LangChunks[NrChkToWrite].Strings.Count);
-                                            LabelFileWriter.Write((int)(0x10 + LangChunks[NrChkToWrite].UnkData.Length)); // Hash table offset
-                                            LabelFileWriter.Write((int)(0x10 + LangChunks[NrChkToWrite].UnkData.Length + LabelHashTableWriter.BaseStream.Length)); // String table offset
-                                            LabelFileWriter.Write(LangChunks[NrChkToWrite].UnkData);
-                                            LabelFileWriter.Write(LabelHashTable.ToArray());
-                                            LabelFileWriter.Write(LabelStringTable.ToArray());
-
-                                        }
-                                        else // C, PS, UC, W
-                                        {
-                                            LabelFileWriter.Write(ChkID);
-                                            LabelFileWriter.Write((int)-1); // will be fixed after writing everything
-                                            LabelFileWriter.Write(LangChunks[NrChkToWrite].Strings.Count);
-                                            LabelFileWriter.Write((int)(0x1C)); // Hash table offset
-                                            LabelFileWriter.Write((int)(0x1C + LabelHashTableWriter.BaseStream.Length)); // String table offset
-                                            byte[] LangFileCategory = Encoding.GetEncoding("ISO-8859-1").GetBytes(LangChunks[NrChkToWrite].Category);
-                                            Array.Resize(ref LangFileCategory, 16);
-                                            LabelFileWriter.Write(LangFileCategory);
-                                            LabelFileWriter.Write(LabelHashTable.ToArray());
-                                            LabelFileWriter.Write(LabelStringTable.ToArray());
-                                        }
-
-                                        LabelStringTableWriter.Dispose();
-                                        LabelStringTableWriter.Close();
-                                        LabelStringTable.Dispose();
-                                        LabelStringTable.Close();
-                                        LabelHashTableWriter.Dispose();
-                                        LabelHashTableWriter.Close();
-                                        LabelHashTable.Dispose();
-                                        LabelHashTable.Close();
-                                    }
-
-                                    NrChkToWrite++;
-
-                                    // Write Chunk Size
-                                    int ChkEndOffset = (int)LabelFileWriter.BaseStream.Position; // Get where we are
-                                    LabelFileWriter.BaseStream.Position = ChkOffset + 4; // Go back to chunk size
-                                    LabelFileWriter.Write(ChkEndOffset - ChkOffset - 8); // Chunk Size = End - Start - 8
-                                    LabelFileWriter.BaseStream.Position = ChkEndOffset; // Go back where we are
-
-                                    // Process the other file
-                                    LabelFileReader.BaseStream.Position += ChkSz; // for other chunks
-                                }
-
-                                else // Copy existing data from the file
-                                {
-                                    LabelFileWriter.Write(ChkID);
-                                    LabelFileWriter.Write(ChkSz);
-                                    LabelFileWriter.Write(LabelFileReader.ReadBytes((ChkSz)));
-                                }
-                            }
-                        }
-
-                        LabelFileWriter.Dispose();
-                        LabelFileWriter.Close();
-
-                        // Take a backup
-                        if (Properties.Settings.Default.CreateBackups) File.Copy(LabelFileName, LabelFileName + "." + DateTime.Now.ToString("yyyyMMddHHmmss") + ".labrunebackup", false);
-
-                        // Copy tmp over the language file
-                        if (File.Exists(LabelFileName + ".tmp"))
-                        {
-                            File.Copy(LabelFileName + ".tmp", LabelFileName, true);
-                            File.Delete(LabelFileName + ".tmp");
-                        }
-                    }
-
-                    //MessageBox.Show("File saved successfully.", "Labrune", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    TaskDialog MsgDialog = new TaskDialog();
-                    MsgDialog.StandardButtons = TaskDialogStandardButtons.Ok;
-                    MsgDialog.Icon = TaskDialogStandardIcon.Information;
-                    MsgDialog.InstructionText = "Done!";
-                    MsgDialog.Caption = "Labrune";
-                    MsgDialog.Text = "File saved succesfully.";
-                    MsgDialog.Show();
+                    ThrowInfo("Labrune", "Done!", "Succesfully saved language file " + Path.GetFileName(Saver.FileName) + " to " + Path.GetDirectoryName(Saver.FileName) + ".");
                     MarkFileAsUnModified();
-
                 }
-                catch (Exception ex)
-                {
-                    //MessageBox.Show("Labrune was unable to save the language file." + Environment.NewLine + "It may be currently used, corrupted or Labrune doesn't have enough permissions to process it.", "Labrune", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    TaskDialog ErrDialog = new TaskDialog();
-                    ErrDialog.StandardButtons = TaskDialogStandardButtons.Ok;
-                    ErrDialog.Icon = TaskDialogStandardIcon.Error;
-                    ErrDialog.InstructionText = "Error!";
-                    ErrDialog.Caption = "Labrune";
-                    ErrDialog.Text = "Labrune was unable to save the language file." + Environment.NewLine + "It may be currently used, corrupted or Labrune doesn't have enough permissions to process it.";
-                    ErrDialog.DetailsExpanded = false;
-                    ErrDialog.DetailsExpandedText = ex.ToString();
-                    ErrDialog.ExpansionMode = TaskDialogExpandedDetailsLocation.ExpandFooter;
-                    ErrDialog.Show();
-                }
+                else ThrowError("Labrune", "Save Error", "Labrune was unable to save language file" + Path.GetFileName(Saver.FileName) + " to " + Path.GetDirectoryName(Saver.FileName) + "." + Environment.NewLine + "The file may be currently used, corrupt or Labrune doesn't have enough permissions to make file operations here.");
             }
         }
 
@@ -1461,79 +1584,61 @@ namespace Labrune
             AboutWindow.ShowDialog();
         }
 
-        private void OptionsToolStripMenuItem_Click(object sender, EventArgs e)
+        private void exportToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var OptionsWindow = new LabruneOptions();
-            OptionsWindow.ShowDialog();
-        }
+            bool IsExportedSuccessfully = false;
 
-        private void TextFileModifiedEntriesOnlyToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            if (IsFileModified)
+            // Show export options dialog
+            if (ExportFileDialog.ShowDialog() == DialogResult.OK)
             {
-                if (ExportFileDialog.ShowDialog() == DialogResult.OK)
+                Exporter.SetFileName(ExportFileDialog.FileName);
+                Exporter.SetChunkInfo(CurrentChunk, LangChunks.Count);
+                Exporter.SetEntryInfo(ModifiedValuesIndexes.Count);
+                var Result = Exporter.ShowDialog();
+
+                if (Result == DialogResult.OK)
                 {
-                    String TXTFileName = ExportFileDialog.FileName.ToString();
-                    if (TXTFileName != "")
-                    {
-                        try
-                        {
-                            using (StreamWriter TXTFile = new StreamWriter(TXTFileName))
-                            {
-                                TXTFile.WriteLine("#\t" + Text);
-                                TXTFile.WriteLine("#\t" + "File created on: " + DateTime.Now.ToString());
-                                TXTFile.WriteLine("#");
-                                TXTFile.WriteLine("#" + "Chunk" + "\t" + "Hash (HEX)" + "\t" + "Label" + "\t" + "Value");
-                                TXTFile.WriteLine("#" + " " + "---------------------------------------------------------------------------------------------------------");
+                    IsExportedSuccessfully = Exporter.FileFormat == 1 ? ExportEndScript(Exporter) : ExportLabruneDump(Exporter);
 
-                                foreach (LanguageChunk i in LangChunks)
-                                {
-                                    TXTFile.WriteLine("# Chunk " + LangChunks.IndexOf(i) + (String.IsNullOrEmpty(i.Category) ? "" : " - " + i.Category));
-                                    foreach (LanguageStringRecord sR in i.Strings)
-                                    {
-                                        if (sR.IsModified == true) TXTFile.WriteLine("{0}\t{1}\t{2}\t{3}", LangChunks.IndexOf(i), sR.Hash.ToString("X8"), sR.Label, sR.Text);
-                                    }
-                                }
-
-                                //MessageBox.Show("All values are exported into" + "\n" + TXTFileName, "Labrune", MessageBoxButtons.OK);
-                                TaskDialog MsgDialog = new TaskDialog();
-                                MsgDialog.StandardButtons = TaskDialogStandardButtons.Ok;
-                                MsgDialog.Icon = TaskDialogStandardIcon.Information;
-                                MsgDialog.InstructionText = "Done!";
-                                MsgDialog.Caption = "Labrune";
-                                MsgDialog.Text = "All modified values are exported into" + " " + TXTFileName;
-                                MsgDialog.Show();
-                            }
-
-                        }
-                        catch (Exception ex)
-                        {
-                            //MessageBox.Show("Values could not be exported.", "Labrune", MessageBoxButtons.OK);
-                            TaskDialog ErrDialog = new TaskDialog();
-                            ErrDialog.StandardButtons = TaskDialogStandardButtons.Ok;
-                            ErrDialog.Icon = TaskDialogStandardIcon.Error;
-                            ErrDialog.InstructionText = "Error!";
-                            ErrDialog.Caption = "Labrune";
-                            ErrDialog.Text = "Values could not be exported.";
-                            ErrDialog.DetailsExpanded = false;
-                            ErrDialog.DetailsExpandedText = ex.ToString();
-                            ErrDialog.ExpansionMode = TaskDialogExpandedDetailsLocation.ExpandFooter;
-                            ErrDialog.Show();
-                        }
-                    }
+                    if (IsExportedSuccessfully) ThrowInfo("Labrune", "Done!", "Succesfully exported " + ((Exporter.FileFormat == 1 && Exporter.EndScriptLang == 1) ? "multiple end script files" : Path.GetFileName(Exporter.FileName)) + " to " + Path.GetDirectoryName(Exporter.FileName) + ".");
+                    else ThrowError("Labrune", "Export Error", "Labrune was unable to export " + ((Exporter.FileFormat == 1 && Exporter.EndScriptLang == 1) ? "multiple end script files" : Path.GetFileName(Exporter.FileName)) + " to " + Path.GetDirectoryName(Exporter.FileName) + "." + Environment.NewLine + "The file(s) may be currently used, corrupt or Labrune doesn't have enough permissions to make file operations here.");
                 }
             }
-            else
+        }
+
+        private void restoreBackupsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            RestoreFile(Files[0].FileName);
+        }
+
+        private void saveAsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            bool IsSavedSuccessfully = false;
+
+            SaveLanguageFileDlg.FileName = Files[0].FileName;
+            SaveLanguageFileDlg.InitialDirectory = Files[0].FileName;
+
+            // Show save options dialog
+            if (SaveLanguageFileDlg.ShowDialog() == DialogResult.OK)
             {
-                TaskDialog MsgDialog = new TaskDialog();
-                MsgDialog.StandardButtons = TaskDialogStandardButtons.Ok;
-                MsgDialog.Icon = TaskDialogStandardIcon.Warning;
-                MsgDialog.InstructionText = "Warning!";
-                MsgDialog.Caption = "Labrune";
-                MsgDialog.Text = "There are no modified values.";
-                MsgDialog.Show();
+                Saver.FileName = SaveLanguageFileDlg.FileName;
+                Saver.Version = LangChunks[0].Version;
+                Saver.EnableLabelsOption(HasLabels);
+
+                var Result = Saver.ShowDialog();
+
+                if (Result == DialogResult.OK)
+                {
+                    IsSavedSuccessfully = SaveFile(Saver);
+
+                    if (IsSavedSuccessfully)
+                    {
+                        ThrowInfo("Labrune", "Done!", "Succesfully saved language file " + Path.GetFileName(Saver.FileName) + " to " + Path.GetDirectoryName(Saver.FileName) + ".");
+                        MarkFileAsUnModified();
+                    }
+                    else ThrowError("Labrune", "Save Error", "Labrune was unable to save language file" + Path.GetFileName(Saver.FileName) + " to " + Path.GetDirectoryName(Saver.FileName) + "." + Environment.NewLine + "The file may be currently used, corrupt or Labrune doesn't have enough permissions to make file operations here.");
+                }
             }
-            
         }
     }
 }

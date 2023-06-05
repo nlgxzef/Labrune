@@ -73,7 +73,7 @@ namespace Labrune
             {
                 theFile = null;
                 dictionary.Clear();
-                if (File.Exists(value))
+                if (System.IO.File.Exists(value))
                 {
                     theFile = value;
                     using (StreamReader sr = new StreamReader(theFile))
@@ -83,7 +83,7 @@ namespace Labrune
                         {
                             line = line.Trim();
                             if (line.Length == 0) continue;  // empty line
-                            if (!String.IsNullOrEmpty(CommentDelimiter) && line.StartsWith(CommentDelimiter))
+                            if (!string.IsNullOrEmpty(CommentDelimiter) && line.StartsWith(CommentDelimiter))
                                 continue;  // comment
 
                             if (line.StartsWith("[") && line.Contains("]"))  // [section]
@@ -98,7 +98,7 @@ namespace Labrune
                                 int index = line.IndexOf('=');
                                 string key = line.Substring(0, index).Trim();
                                 string val = line.Substring(index + 1).Trim();
-                                string key2 = String.Format("[{0}]{1}", section, key).ToLower(new CultureInfo("en-US", false));
+                                string key2 = string.Format("[{0}]{1}", section, key).ToLower(new CultureInfo("en-US", false));
 
                                 if (val.StartsWith("\"") && val.EndsWith("\""))  // strip quotes
                                     val = val.Substring(1, val.Length - 2);
@@ -109,7 +109,7 @@ namespace Labrune
                                     string key3;
                                     while (true)
                                     {
-                                        key3 = String.Format("{0}~{1}", key2, ++index);
+                                        key3 = string.Format("{0}~{1}", key2, ++index);
                                         if (!dictionary.ContainsKey(key3))
                                         {
                                             dictionary.Add(key3, val);

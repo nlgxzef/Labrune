@@ -40,10 +40,10 @@
             this.reCompilerOldToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.langEdDumpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.exportToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.textFileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.textFileModifiedEntriesOnlyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
             this.saveToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator7 = new System.Windows.Forms.ToolStripSeparator();
+            this.restoreBackupsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator5 = new System.Windows.Forms.ToolStripSeparator();
             this.exitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.editToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -59,7 +59,6 @@
             this.NextModifiedToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator6 = new System.Windows.Forms.ToolStripSeparator();
             this.fontSettingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.optionsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.aboutLabruneToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.LangStringView = new System.Windows.Forms.ListView();
@@ -73,10 +72,11 @@
             this.OpenLanguageFileDlg = new System.Windows.Forms.OpenFileDialog();
             this.FontSettingsDlg = new System.Windows.Forms.FontDialog();
             this.OpenLangEdDumpDialog = new System.Windows.Forms.OpenFileDialog();
-            this.ExportFileDialog = new System.Windows.Forms.SaveFileDialog();
             this.OpenLabruneDumpDialog = new System.Windows.Forms.OpenFileDialog();
             this.OpenReCompilerIniDialog = new System.Windows.Forms.OpenFileDialog();
             this.SaveLanguageFileDlg = new System.Windows.Forms.SaveFileDialog();
+            this.ExportFileDialog = new System.Windows.Forms.SaveFileDialog();
+            this.saveAsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.LangMenuBar.SuspendLayout();
             this.LangStatusBar.SuspendLayout();
             this.SuspendLayout();
@@ -101,6 +101,9 @@
             this.exportToolStripMenuItem,
             this.toolStripSeparator4,
             this.saveToolStripMenuItem,
+            this.saveAsToolStripMenuItem,
+            this.toolStripSeparator7,
+            this.restoreBackupsToolStripMenuItem,
             this.toolStripSeparator5,
             this.exitToolStripMenuItem});
             this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
@@ -111,14 +114,14 @@
             // 
             this.openToolStripMenuItem.Name = "openToolStripMenuItem";
             this.openToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.O)));
-            this.openToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.openToolStripMenuItem.Size = new System.Drawing.Size(210, 22);
             this.openToolStripMenuItem.Text = "Open...";
             this.openToolStripMenuItem.Click += new System.EventHandler(this.openToolStripMenuItem_Click);
             // 
             // toolStripSeparator3
             // 
             this.toolStripSeparator3.Name = "toolStripSeparator3";
-            this.toolStripSeparator3.Size = new System.Drawing.Size(177, 6);
+            this.toolStripSeparator3.Size = new System.Drawing.Size(207, 6);
             // 
             // ImportToolStripMenuItem
             // 
@@ -130,14 +133,14 @@
             this.langEdDumpToolStripMenuItem});
             this.ImportToolStripMenuItem.Enabled = false;
             this.ImportToolStripMenuItem.Name = "ImportToolStripMenuItem";
-            this.ImportToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.ImportToolStripMenuItem.Size = new System.Drawing.Size(210, 22);
             this.ImportToolStripMenuItem.Text = "Import";
             // 
             // labruneTextFileToolStripMenuItem
             // 
             this.labruneTextFileToolStripMenuItem.Name = "labruneTextFileToolStripMenuItem";
             this.labruneTextFileToolStripMenuItem.Size = new System.Drawing.Size(271, 22);
-            this.labruneTextFileToolStripMenuItem.Text = "Text File...";
+            this.labruneTextFileToolStripMenuItem.Text = "Labrune Dump...";
             this.labruneTextFileToolStripMenuItem.Click += new System.EventHandler(this.LabruneTextFileToolStripMenuItem_Click);
             // 
             // edConfigurationsToolStripMenuItem
@@ -170,53 +173,51 @@
             // 
             // exportToolStripMenuItem
             // 
-            this.exportToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.textFileToolStripMenuItem,
-            this.textFileModifiedEntriesOnlyToolStripMenuItem});
             this.exportToolStripMenuItem.Enabled = false;
             this.exportToolStripMenuItem.Name = "exportToolStripMenuItem";
-            this.exportToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.exportToolStripMenuItem.Text = "Export";
-            // 
-            // textFileToolStripMenuItem
-            // 
-            this.textFileToolStripMenuItem.Name = "textFileToolStripMenuItem";
-            this.textFileToolStripMenuItem.Size = new System.Drawing.Size(248, 22);
-            this.textFileToolStripMenuItem.Text = "Text File (All)...";
-            this.textFileToolStripMenuItem.Click += new System.EventHandler(this.TextFileToolStripMenuItem_Click);
-            // 
-            // textFileModifiedEntriesOnlyToolStripMenuItem
-            // 
-            this.textFileModifiedEntriesOnlyToolStripMenuItem.Enabled = false;
-            this.textFileModifiedEntriesOnlyToolStripMenuItem.Name = "textFileModifiedEntriesOnlyToolStripMenuItem";
-            this.textFileModifiedEntriesOnlyToolStripMenuItem.Size = new System.Drawing.Size(248, 22);
-            this.textFileModifiedEntriesOnlyToolStripMenuItem.Text = "Text File (Modified entries only)...";
-            this.textFileModifiedEntriesOnlyToolStripMenuItem.Click += new System.EventHandler(this.TextFileModifiedEntriesOnlyToolStripMenuItem_Click);
+            this.exportToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.E)));
+            this.exportToolStripMenuItem.Size = new System.Drawing.Size(210, 22);
+            this.exportToolStripMenuItem.Text = "Export...";
+            this.exportToolStripMenuItem.Click += new System.EventHandler(this.exportToolStripMenuItem_Click);
             // 
             // toolStripSeparator4
             // 
             this.toolStripSeparator4.Name = "toolStripSeparator4";
-            this.toolStripSeparator4.Size = new System.Drawing.Size(177, 6);
+            this.toolStripSeparator4.Size = new System.Drawing.Size(207, 6);
             // 
             // saveToolStripMenuItem
             // 
             this.saveToolStripMenuItem.Enabled = false;
             this.saveToolStripMenuItem.Name = "saveToolStripMenuItem";
             this.saveToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.S)));
-            this.saveToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.saveToolStripMenuItem.Size = new System.Drawing.Size(210, 22);
             this.saveToolStripMenuItem.Text = "Save...";
             this.saveToolStripMenuItem.Click += new System.EventHandler(this.SaveToolStripMenuItem_Click);
+            // 
+            // toolStripSeparator7
+            // 
+            this.toolStripSeparator7.Name = "toolStripSeparator7";
+            this.toolStripSeparator7.Size = new System.Drawing.Size(207, 6);
+            // 
+            // restoreBackupsToolStripMenuItem
+            // 
+            this.restoreBackupsToolStripMenuItem.Enabled = false;
+            this.restoreBackupsToolStripMenuItem.Name = "restoreBackupsToolStripMenuItem";
+            this.restoreBackupsToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.R)));
+            this.restoreBackupsToolStripMenuItem.Size = new System.Drawing.Size(210, 22);
+            this.restoreBackupsToolStripMenuItem.Text = "Restore Backups...";
+            this.restoreBackupsToolStripMenuItem.Click += new System.EventHandler(this.restoreBackupsToolStripMenuItem_Click);
             // 
             // toolStripSeparator5
             // 
             this.toolStripSeparator5.Name = "toolStripSeparator5";
-            this.toolStripSeparator5.Size = new System.Drawing.Size(177, 6);
+            this.toolStripSeparator5.Size = new System.Drawing.Size(207, 6);
             // 
             // exitToolStripMenuItem
             // 
             this.exitToolStripMenuItem.Name = "exitToolStripMenuItem";
             this.exitToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Alt | System.Windows.Forms.Keys.F4)));
-            this.exitToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.exitToolStripMenuItem.Size = new System.Drawing.Size(210, 22);
             this.exitToolStripMenuItem.Text = "Exit";
             this.exitToolStripMenuItem.Click += new System.EventHandler(this.ExitToolStripMenuItem_Click);
             // 
@@ -234,8 +235,7 @@
             this.PrevModifiedToolStripMenuItem,
             this.NextModifiedToolStripMenuItem,
             this.toolStripSeparator6,
-            this.fontSettingsToolStripMenuItem,
-            this.optionsToolStripMenuItem});
+            this.fontSettingsToolStripMenuItem});
             this.editToolStripMenuItem.Name = "editToolStripMenuItem";
             this.editToolStripMenuItem.Size = new System.Drawing.Size(39, 20);
             this.editToolStripMenuItem.Text = "Edit";
@@ -335,14 +335,6 @@
             this.fontSettingsToolStripMenuItem.Text = "Font Settings...";
             this.fontSettingsToolStripMenuItem.Click += new System.EventHandler(this.fontSettingsToolStripMenuItem_Click);
             // 
-            // optionsToolStripMenuItem
-            // 
-            this.optionsToolStripMenuItem.Name = "optionsToolStripMenuItem";
-            this.optionsToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Alt | System.Windows.Forms.Keys.O)));
-            this.optionsToolStripMenuItem.Size = new System.Drawing.Size(221, 22);
-            this.optionsToolStripMenuItem.Text = "Options...";
-            this.optionsToolStripMenuItem.Click += new System.EventHandler(this.OptionsToolStripMenuItem_Click);
-            // 
             // helpToolStripMenuItem
             // 
             this.helpToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -370,6 +362,7 @@
             this.columnHeader3,
             this.columnHeader4});
             this.LangStringView.FullRowSelect = true;
+            this.LangStringView.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
             this.LangStringView.HideSelection = false;
             this.LangStringView.Location = new System.Drawing.Point(12, 54);
             this.LangStringView.Name = "LangStringView";
@@ -433,16 +426,14 @@
             this.OpenLanguageFileDlg.Filter = "NFS Language Binary Files (*.bin)|*.bin|All Files (*.*)|*.*";
             this.OpenLanguageFileDlg.Title = "Open NFS Language File";
             // 
+            // FontSettingsDlg
+            // 
+            this.FontSettingsDlg.Color = System.Drawing.Color.White;
+            // 
             // OpenLangEdDumpDialog
             // 
             this.OpenLangEdDumpDialog.Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*";
             this.OpenLangEdDumpDialog.Title = "Import NFS-LangEd Text File";
-            // 
-            // ExportFileDialog
-            // 
-            this.ExportFileDialog.DefaultExt = "txt";
-            this.ExportFileDialog.Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*";
-            this.ExportFileDialog.Title = "Export Strings to a Text File";
             // 
             // OpenLabruneDumpDialog
             // 
@@ -458,6 +449,23 @@
             // 
             this.SaveLanguageFileDlg.Filter = "NFS Language Binary Files (*.bin)|*.bin|All Files (*.*)|*.*";
             this.SaveLanguageFileDlg.Title = "Save NFS Language File";
+            // 
+            // ExportFileDialog
+            // 
+            this.ExportFileDialog.DefaultExt = "txt";
+            this.ExportFileDialog.Filter = "Labrune Dump (*.txt)|*.txt|End Script VERSN2 for Binary v2+ (*.end)|*.end|All Fil" +
+    "es (*.*)|*.*";
+            this.ExportFileDialog.Title = "Export";
+            // 
+            // saveAsToolStripMenuItem
+            // 
+            this.saveAsToolStripMenuItem.Enabled = false;
+            this.saveAsToolStripMenuItem.Name = "saveAsToolStripMenuItem";
+            this.saveAsToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)(((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Shift) 
+            | System.Windows.Forms.Keys.S)));
+            this.saveAsToolStripMenuItem.Size = new System.Drawing.Size(210, 22);
+            this.saveAsToolStripMenuItem.Text = "Save As...";
+            this.saveAsToolStripMenuItem.Click += new System.EventHandler(this.saveAsToolStripMenuItem_Click);
             // 
             // Labrune
             // 
@@ -504,7 +512,6 @@
         private System.Windows.Forms.ToolStripMenuItem edConfigurationsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem labruneTextFileToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem exportToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem textFileToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator4;
         private System.Windows.Forms.ToolStripMenuItem saveToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator5;
@@ -522,16 +529,17 @@
         private System.Windows.Forms.ToolStripMenuItem aboutLabruneToolStripMenuItem;
         public System.Windows.Forms.ToolStripStatusLabel StatusBarText;
         private System.Windows.Forms.OpenFileDialog OpenLangEdDumpDialog;
-        private System.Windows.Forms.SaveFileDialog ExportFileDialog;
         private System.Windows.Forms.OpenFileDialog OpenLabruneDumpDialog;
         private System.Windows.Forms.ToolStripMenuItem reCompilerOldToolStripMenuItem;
         private System.Windows.Forms.OpenFileDialog OpenReCompilerIniDialog;
-        private System.Windows.Forms.ToolStripMenuItem optionsToolStripMenuItem;
         private System.Windows.Forms.SaveFileDialog SaveLanguageFileDlg;
         private System.Windows.Forms.ToolStripMenuItem PrevModifiedToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem NextModifiedToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator6;
-        private System.Windows.Forms.ToolStripMenuItem textFileModifiedEntriesOnlyToolStripMenuItem;
+        private System.Windows.Forms.SaveFileDialog ExportFileDialog;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator7;
+        private System.Windows.Forms.ToolStripMenuItem restoreBackupsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem saveAsToolStripMenuItem;
     }
 }
 

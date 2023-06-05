@@ -71,6 +71,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BinHash.cs" />
+    <Compile Include="Charset.cs" />
+    <Compile Include="Chunk.cs" />
     <Compile Include="IniFile.cs" />
     <Compile Include="Labrune.cs">
       <SubType>Form</SubType>
@@ -102,7 +104,21 @@
     <Compile Include="LabruneOptions.Designer.cs">
       <DependentUpon>LabruneOptions.cs</DependentUpon>
     </Compile>
+    <Compile Include="LabruneExport.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="LabruneExport.Designer.cs">
+      <DependentUpon>LabruneExport.cs</DependentUpon>
+    </Compile>
+    <Compile Include="LabruneRestore.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="LabruneRestore.Designer.cs">
+      <DependentUpon>LabruneRestore.cs</DependentUpon>
+    </Compile>
     <Compile Include="LanguageChunk.cs" />
+    <Compile Include="File.cs" />
+    <Compile Include="LanguageHistogramChunk.cs" />
     <Compile Include="LanguageStringRecord.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -120,6 +136,12 @@
     </EmbeddedResource>
     <EmbeddedResource Include="LabruneOptions.resx">
       <DependentUpon>LabruneOptions.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="LabruneExport.resx">
+      <DependentUpon>LabruneExport.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="LabruneRestore.resx">
+      <DependentUpon>LabruneRestore.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
@@ -147,12 +169,12 @@
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.6.1">
       <Visible>False</Visible>
-      <ProductName>Microsoft .NET Framework 4.6.1 %28x86 ve x64%29</ProductName>
+      <ProductName>Microsoft .NET Framework 4.6.1 %28x86 and x64%29</ProductName>
       <Install>true</Install>
     </BootstrapperPackage>
     <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
       <Visible>False</Visible>
-      <ProductName>.NET Framework 3.5 SP1 </ProductName>
+      <ProductName>.NET Framework 3.5 SP1</ProductName>
       <Install>false</Install>
     </BootstrapperPackage>
   </ItemGroup>

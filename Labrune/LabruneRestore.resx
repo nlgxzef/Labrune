@@ -117,7 +117,9 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <metadata name="SaveFileDialog.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-    <value>17, 17</value>
-  </metadata>
+  <data name="BackupLabel2.Text" xml:space="preserve">
+    <value>This list only includes .bin_, .bak, .bin.bak, .BACC, .edbackup and .DATETIME.labrunebackup files.
+Hold Ctrl to select multiple files.
+If you select multiple backups of the same file, only the most recent one will be restored.</value>
+  </data>
 </root>

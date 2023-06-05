@@ -121,7 +121,7 @@
   <data name="logoPictureBox.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
         iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAYAAABccqhmAAAAIGNIUk0AAHolAACAgwAA+f8AAIDpAAB1
-        MAAA6mAAADqYAAAXb5JfxUYAAAAJcEhZcwAACxMAAAsTAQCanBgAABAgSURBVHhe7Z3NaqzFFoaPIoIi
+        MAAA6mAAADqYAAAXb5JfxUYAAAAJcEhZcwAACw4AAAsOAUC+4UEAABAgSURBVHhe7Z3NaqzFFoaPIoIi
         ZCa6B96FP+CeH0IEdehYJ96BIFvYm0C8B4eKQ/UeIggO3XOJI3EsCirsPvXmJNkrlVXdaWt1Z9VXzwPP
         4FS+7ny93qrXJN0e/7NarRBxUt1FRJxDdxER59BdRMQ5dBcRcQ7dRUScQ3cREefQXUTEOXQXEXEO3UVE
         nEN3ERHn0F1ExDl0FxFxDt1FRJxDdxER59BdRMQ5dBcRcQ7dRUScQ3cREefQXRzJwXgWU7o13l4cUXdx
@@ -197,9 +197,11 @@
     <value>Labrune is designed as an easy to use, open source language file editor for NFS games. The name comes from one of the NFS Carbon's localization producers, Christophe Labrune.
 
 Huge thanks to:
-- nfsu360 for NFS-LangEd. The tool is inspired from it.
-- heyitsleo for their great help.
-- 379Felipe, Neon, RaTT and trackmaniamatt for testing.
+- Berkayylmao: QoL improvements for the Find feature.
+- nfsu360: NFS-LangEd. The tool is inspired from it.
+- heyitsleo: their great help.
+- redbluescreen: WorldLangEdit &amp; character decoding via language histogram.
+- 379Felipe, Neon, RaTT and trackmaniamatt: testing.
 - And the people who used my NFS-StrEd before, which is never released to public.</value>
   </data>
 </root>
